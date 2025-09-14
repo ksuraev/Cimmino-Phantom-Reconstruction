@@ -196,7 +196,6 @@ void logPerformance(
     const std::chrono::duration<double, std::milli>& projTime,
     const std::chrono::duration<double, std::milli>& reconTime, const std::string filename) {
 
-
     std::ofstream logFile;
 
     // Check if the file already exists 
@@ -212,7 +211,7 @@ void logPerformance(
     }
 
     if (writeHeader) {
-        logFile << "Timestamp,NumIterations,ImageWidth,ImageHeight,NumAngles,NumDetectors,ScanTime_ms,ProjectionTime_ms,ReconstructionTime_ms\n";
+        logFile << "Timestamp,ExecutionType,NumIterations,ImageWidth,ImageHeight,NumAngles,NumDetectors,ScanTime_ms,ProjectionTime_ms,ReconstructionTime_ms\n";
     }
 
     // Get the current system time for the log entry
@@ -221,50 +220,11 @@ void logPerformance(
     std::tm* local_tm = std::localtime(&now_time);
 
     // Write the new data row to CSV file
-    logFile << std::put_time(local_tm, "%Y-%m-%d %H:%M:%S") << ","
+    logFile << std::put_time(local_tm, "%Y-%m-%d %H:%M:%S") << "," << "Metal" << ","
         << numIterations << "," << geom.imageWidth << ","
         << geom.imageHeight << "," << geom.nAngles << "," << geom.nDetectors
         << "," << scanTime.count() << "," << projTime.count() << ","
         << reconTime.count() << "\n";
-
-    logFile.close();
-    std::cout << "Performance metrics logged to " << filename << std::endl;
-}
-
-void logPerformance(
-    const Geometry& geom, const int numIterations,
-    const std::chrono::duration<double, std::milli>& reconTime) {
-    const std::string filename = "performance_log.csv";
-    std::ofstream logFile;
-
-    // Check if the file already exists to determine if we need to write a
-    // header
-    std::ifstream fileExists(filename);
-    bool writeHeader = !fileExists.good();
-    fileExists.close();
-
-    // Open the file in append mode, so we don't overwrite previous results
-    logFile.open(filename, std::ios::out | std::ios::app);
-    if (!logFile.is_open()) {
-        std::cerr << "Error: Could not open log file for writing." << std::endl;
-        return;
-    }
-
-    if (writeHeader) {
-        logFile << "Timestamp,NumIterations,ImageWidth,ImageHeight,NumAngles,"
-            "NumDetectors,ReconstructionTime_ms\n";
-    }
-
-    // Get the current system time for the log entry
-    auto now = std::chrono::system_clock::now();
-    std::time_t now_time = std::chrono::system_clock::to_time_t(now);
-    std::tm* local_tm = std::localtime(&now_time);
-
-    // Write the new data row to the CSV file
-    logFile << std::put_time(local_tm, "%Y-%m-%d %H:%M:%S") << ","
-        << numIterations << "," << geom.imageWidth << ","
-        << geom.imageHeight << "," << geom.nAngles << "," << geom.nDetectors
-        << "," << reconTime.count() << "\n";
 
     logFile.close();
     std::cout << "Performance metrics logged to " << filename << std::endl;

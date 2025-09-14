@@ -261,7 +261,7 @@ void MTLComputeEngine::performScan(std::vector<float>& phantomData) {
   std::cout << "Sinogram normalisation time: " << normMs.count() << " ms" << std::endl;
 
   // If needed, save sinogram to file
-  // saveTextureToFile("sinogram_256.bin", sinogramTexture);
+  saveTextureToFile("../data/sinogram_256.bin", sinogramTexture);
 }
 
 /**

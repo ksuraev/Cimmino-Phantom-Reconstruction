@@ -117,15 +117,6 @@ void logPerformance(
     const Geometry& geom, const int numIterations,
     const std::chrono::duration<double, std::milli>& scanTime,
     const std::chrono::duration<double, std::milli>& projTime,
-    const std::chrono::duration<double, std::milli>& reconTime, const std::string filename = "../logs/performance_log.csv");
-
-/**
- * @brief Log the performance of the image reconstruction to a CSV file.
- * @param geom The geometry structure containing geometry parameters.
- * @param numIterations The number of iterations used in the reconstruction.
- * @param reconTime The time taken for the reconstruction step in milliseconds.
- */
-void logPerformance(const Geometry& geom, const int numIterations,
-    const std::chrono::duration<double, std::milli>& reconTime);
+    const std::chrono::duration<double, std::milli>& reconTime, const std::string filename = "../logs/mtl_performance_log.csv");
 
 #endif  // UTILS_HPP

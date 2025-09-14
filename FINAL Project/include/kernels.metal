@@ -14,60 +14,6 @@ struct Geometry {
 };
 
 
-// Source https://developer.apple.com/metal/Metal-Shading-Language-Specification.pdf
-kernel void findMaxPerThreadgroupKernel(texture2d<float, access::read> input_texture [[texture(0)]],
-                                        device float* map_buffer [[buffer(0)]],
-                                        constant uint& threadgroup_size [[buffer(1)]],
-                                        uint2 t_pos_in_grid [[thread_position_in_grid]],
-                                        uint t_idx_in_tg [[thread_index_in_threadgroup]],
-                                        uint simd_lane_id [[thread_index_in_simdgroup]],
-                                        uint simdgroup_size [[threads_per_simdgroup]],
-                                        uint simd_group_id [[simdgroup_index_in_threadgroup]],
-                                        uint2 tg_pos_in_grid [[threadgroup_position_in_grid]],
-                                        uint2 tg_per_grid [[threadgroups_per_grid]]) {
-  // Threadgroup shared memory                                          
-  threadgroup float local_max_values[256];  
-
-  // Load pixel value
-  float pixelValue = 0.0f;
-  if (t_pos_in_grid.x < input_texture.get_width() && t_pos_in_grid.y < input_texture.get_height()) {
-    pixelValue = input_texture.read(t_pos_in_grid).r;
-  }
-
-  // Per-SIMD partial reduction
-  float val = pixelValue;
-  for (uint offset = simdgroup_size / 2; offset > 0; offset /= 2) {
-    val = max(val, simd_shuffle_down(val, offset));
-  }
-
-  // Write one value per SIMD group to threadgroup memory
-  if (simd_lane_id == 0) {
-    local_max_values[simd_group_id] = val;
-  }
-
-  // Sync within threadgroup
-  threadgroup_barrier(mem_flags::mem_threadgroup);
-
-  // Reduce remaining SIMD-group maxes in threadgroup memory
-  uint simdgroup_count = threadgroup_size / simdgroup_size;
-  float thread_group_max = 0.0f;
-  if (t_idx_in_tg < simdgroup_count) {
-    thread_group_max = local_max_values[t_idx_in_tg];
-    for (uint offset = simdgroup_count / 2; offset > 0; offset /= 2) {
-      if (t_idx_in_tg < offset) {
-        thread_group_max = max(thread_group_max, local_max_values[t_idx_in_tg + offset]);
-      }
-      threadgroup_barrier(mem_flags::mem_threadgroup);
-    }
-  }
-
-  // Write final threadgroup max to output
-  if (t_idx_in_tg == 0) {
-    uint tg_idx = tg_pos_in_grid.y * tg_per_grid.x + tg_pos_in_grid.x;
-    map_buffer[tg_idx] = thread_group_max;
-  }
-}
-
 // Calculate the sinogram from the phantom image
 // Simulate the projection of rays through the image/phantom
 // Source https://github.com/ferasboulala/radon-tf/blob/master/radon/radon.inl.hpp
@@ -122,6 +68,59 @@ kernel void performScan(device float* phantomBuffer [[buffer(0)]],
   sinogramBuffer[gid] = finalValue;
 }
 
+// Source https://developer.apple.com/metal/Metal-Shading-Language-Specification.pdf
+kernel void findMaxPerThreadgroupKernel(texture2d<float, access::read> input_texture [[texture(0)]],
+                                        device float* map_buffer [[buffer(0)]],
+                                        constant uint& threadgroup_size [[buffer(1)]],
+                                        uint2 t_pos_in_grid [[thread_position_in_grid]],
+                                        uint t_idx_in_tg [[thread_index_in_threadgroup]],
+                                        uint simd_lane_id [[thread_index_in_simdgroup]],
+                                        uint simdgroup_size [[threads_per_simdgroup]],
+                                        uint simd_group_id [[simdgroup_index_in_threadgroup]],
+                                        uint2 tg_pos_in_grid [[threadgroup_position_in_grid]],
+                                        uint2 tg_per_grid [[threadgroups_per_grid]]) {
+  // Threadgroup shared memory                                          
+  threadgroup float local_max_values[256];  
+
+  // Load pixel value
+  float pixelValue = 0.0f;
+  if (t_pos_in_grid.x < input_texture.get_width() && t_pos_in_grid.y < input_texture.get_height()) {
+    pixelValue = input_texture.read(t_pos_in_grid).r;
+  }
+
+  // Per-SIMD partial reduction
+  float val = pixelValue;
+  for (uint offset = simdgroup_size / 2; offset > 0; offset /= 2) {
+    val = max(val, simd_shuffle_down(val, offset));
+  }
+
+  // Write one value per SIMD group to threadgroup memory
+  if (simd_lane_id == 0) {
+    local_max_values[simd_group_id] = val;
+  }
+
+  // Sync within threadgroup
+  threadgroup_barrier(mem_flags::mem_threadgroup);
+
+  // Reduce remaining SIMD-group maxes in threadgroup memory
+  uint simdgroup_count = threadgroup_size / simdgroup_size;
+  float thread_group_max = 0.0f;
+  if (t_idx_in_tg < simdgroup_count) {
+    thread_group_max = local_max_values[t_idx_in_tg];
+    for (uint offset = simdgroup_count / 2; offset > 0; offset /= 2) {
+      if (t_idx_in_tg < offset) {
+        thread_group_max = max(thread_group_max, local_max_values[t_idx_in_tg + offset]);
+      }
+      threadgroup_barrier(mem_flags::mem_threadgroup);
+    }
+  }
+
+  // Write final threadgroup max to output
+  if (t_idx_in_tg == 0) {
+    uint tg_idx = tg_pos_in_grid.y * tg_per_grid.x + tg_pos_in_grid.x;
+    map_buffer[tg_idx] = thread_group_max;
+  }
+}
 
 // Atomic helper function
 // Source https://stackoverflow.com/questions/36663645/finding-the-minimum-and-maximum-value-within-a-metal-texture
@@ -130,9 +129,7 @@ static void atomic_uint_exchange_if_greater_than(volatile device atomic_uint* cu
   uint currentVal;
   do {
     currentVal = *reinterpret_cast<volatile device uint*>(current);
-  } while (candidate > currentVal &&
-           !atomic_compare_exchange_weak_explicit(current, &currentVal, candidate,
-                                                  memory_order_relaxed, memory_order_relaxed));
+  } while (candidate > currentVal && !atomic_compare_exchange_weak_explicit(current, &currentVal, candidate, memory_order_relaxed, memory_order_relaxed));
 }
 
 // Pass 2 - reduce the local max values to find the global max
@@ -194,7 +191,7 @@ kernel void cimminosReconstruction(const device float* reconstructedBuffer [[buf
   float b_i = sinogramBuffer_b[rayIndex];
   float residual = b_i - dotProduct;
 
-  float scalar = 3.0f * (1.0f / totalWeightSum) * residual;
+  float scalar = 2.0f * (1.0f / totalWeightSum) * residual;
 
   // Back Project - Add this ray's contribution to the update buffer
   for (int i = rowStart; i < rowEnd; ++i) {
