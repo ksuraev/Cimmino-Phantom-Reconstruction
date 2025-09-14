@@ -7,6 +7,8 @@
 #define IMAGE_HEIGHT 256
 #define NUM_ANGLES 90
 
+#define NUM_THREADS 8
+
 /**
  * @brief Compute the squared L2 norm of each row in the sparse matrix and the total weight sum.
  * @param projector Sparse projection matrix in CSR format.
@@ -17,7 +19,7 @@
 void computeRowWeights(const SparseMatrix& projector, size_t totalRays, float& totalWeightSum) {
     std::vector<float> rowWeights(totalRays, 0.0f);
 
-#pragma omp parallel num_threads(8) 
+#pragma omp parallel num_threads(NUM_THREADS) 
     {
         std::vector<float> localRowWeights(totalRays, 0.0f);
 
@@ -56,7 +58,7 @@ void cimminoReconstruct(int maxIterations,
         // Pass 1: Calculate all residuals
         std::fill(residuals.begin(), residuals.end(), 0.0f);
 
-#pragma omp parallel for
+#pragma omp parallel for num_threads(NUM_THREADS)
         for (size_t r = 0; r < totalRays; ++r) {
             float dotProduct = 0.0f;
             int rowStart = projector.rows[r];
@@ -70,7 +72,7 @@ void cimminoReconstruct(int maxIterations,
         }
 
         // Pass 2: Update x
-#pragma omp parallel num_threads(8)
+#pragma omp parallel num_threads(NUM_THREADS)
         {
             std::vector<float> localX(imageSize, 0.0f);
 
@@ -122,7 +124,11 @@ int main(int argc, const char* argv[]) {
 
     // Load sinogram from file
     std::vector<float> sinogram(totalRays, 0.0f);
-    loadSinogram("../data/sinogram_256.bin", sinogram, totalRays);
+
+    if (!loadSinogram("../data/sinogram_256.bin", sinogram, totalRays)) {
+        std::cerr << "Failed to load sinogram." << std::endl;
+        return -1;
+    }
 
     float totalWeightSum = 0.0f;
     computeRowWeights(projector, totalRays, totalWeightSum);

@@ -118,7 +118,10 @@ int main(int argc, const char* argv[]) {
 
     // Load sinogram from file
     std::vector<float> sinogram(totalRays, 0.0f);
-    loadSinogram("../data/sinogram_256.bin", sinogram, totalRays);
+    if (!loadSinogram("../data/sinogram_256.bin", sinogram, totalRays)) {
+        std::cerr << "Failed to load sinogram." << std::endl;
+        return -1;
+    }
 
     // Compute row weights and total weight sum
     float totalWeightSum = 0.0f;

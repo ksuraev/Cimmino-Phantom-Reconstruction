@@ -36,22 +36,18 @@ int main(int argc, char** argv) {
         int numReconstructIterations = 1000;
 
         // Generate projection matrix 
-        auto startProj = std::chrono::high_resolution_clock::now();
-        mtlComputeEngine.generateProjectionMatrix();
-        auto endProj = std::chrono::high_resolution_clock::now();
+        double projectionTime = timeMethod_ms([&]() {
+            mtlComputeEngine.generateProjectionMatrix();
+            });
 
-        // Generate sinogram for given phantom
-        auto startScan = std::chrono::high_resolution_clock::now();
+        // Generate sinogram for loaded phantom
         std::vector<float> phantomData = loadPhantom("../data/phantom_256.txt", geom);
-        mtlComputeEngine.performScan(phantomData);
-        auto endScan = std::chrono::high_resolution_clock::now();
+        double scanTime = timeMethod_ms([&]() {
+            mtlComputeEngine.performScan(phantomData);
+            });
 
         // Perform cimmino reconstruction
         auto totalReconstructTime = mtlComputeEngine.reconstructImage(numReconstructIterations);
-
-        // Record time taken for projection matrix generation and sinogram generation
-        auto projMs = std::chrono::duration<double, std::milli>(endProj - startProj);
-        auto scanMs = std::chrono::duration<double, std::milli>(endScan - startScan);
 
         // Get textures from metal compute engine and set in render engine
         mtlRenderEngine.setSinogramTexture(mtlComputeEngine.getSinogramTexture());
@@ -62,7 +58,7 @@ int main(int argc, char** argv) {
         mtlRenderEngine.render();
 
         // Log performance metrics
-        logPerformance(geom, numReconstructIterations, projMs, scanMs, totalReconstructTime);
+        logPerformance(geom, numReconstructIterations, projectionTime, scanTime, totalReconstructTime);
 
         // Release the autorelease pool
         pPool->release();

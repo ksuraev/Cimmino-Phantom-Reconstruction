@@ -192,8 +192,8 @@ std::vector<float> flipImageVertically(const std::vector<float>& originalData, i
 
 void logPerformance(
     const Geometry& geom, const int numIterations,
-    const std::chrono::duration<double, std::milli>& scanTime,
-    const std::chrono::duration<double, std::milli>& projTime,
+    const double scanTime,
+    const double projTime,
     const std::chrono::duration<double, std::milli>& reconTime, const std::string filename) {
 
     std::ofstream logFile;
@@ -223,7 +223,7 @@ void logPerformance(
     logFile << std::put_time(local_tm, "%Y-%m-%d %H:%M:%S") << "," << "Metal" << ","
         << numIterations << "," << geom.imageWidth << ","
         << geom.imageHeight << "," << geom.nAngles << "," << geom.nDetectors
-        << "," << scanTime.count() << "," << projTime.count() << ","
+        << "," << scanTime << "," << projTime << ","
         << reconTime.count() << "\n";
 
     logFile.close();

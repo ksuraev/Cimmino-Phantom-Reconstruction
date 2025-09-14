@@ -115,8 +115,21 @@ std::vector<float> flipImageVertically(const std::vector<float>& originalData, i
  */
 void logPerformance(
     const Geometry& geom, const int numIterations,
-    const std::chrono::duration<double, std::milli>& scanTime,
-    const std::chrono::duration<double, std::milli>& projTime,
+    const double scanTime,
+    const double projTime,
     const std::chrono::duration<double, std::milli>& reconTime, const std::string filename = "../logs/mtl_performance_log.csv");
+
+/**
+* @brief Times the execution of a method and returns the duration in microseconds.
+* @param methodToTime The method to be timed.
+* @return The duration of the method execution in microseconds.
+* Inspired by Maksym's code from lecture 14/07/2025
+*/
+static double timeMethod_ms(const std::function<void()>& methodToTime) {
+    auto start = std::chrono::high_resolution_clock::now();
+    methodToTime();
+    auto end = std::chrono::high_resolution_clock::now();
+    return std::chrono::duration_cast<std::chrono::microseconds>(end - start).count() / 1000.0;
+}
 
 #endif  // UTILS_HPP

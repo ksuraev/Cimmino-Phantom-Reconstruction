@@ -550,7 +550,7 @@ MTLComputeEngine::reconstructImage(int numIterations) {
   std::cout << "Reconstruction complete. Reconstructed image copied to texture." << std::endl;
 
   // If needed, uncomment to save reconstructed texture to file
-  // saveTextureToFile("reconstructed_256.bin", reconstructedTexture);
+  // saveTextureToFile("../data/reconstructed_256.bin", reconstructedTexture);
 
   return totalReconstructTime;
 }
