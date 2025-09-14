@@ -1,0 +1,111 @@
+#ifndef MTLRENDERENGINE_HPP
+#define MTLRENDERENGINE_HPP
+#ifdef __OBJC__
+#define GLFW_INCLUDE_NONE
+#import <GLFW/glfw3.h>
+#define GLFW_EXPOSE_NATIVE_COCOA
+#import <GLFW/glfw3native.h>
+#endif
+
+// #include <Metal/Metal.hpp>
+#include <QuartzCore/CAMetalLayer.h>
+#include <QuartzCore/QuartzCore.hpp>
+#include "MetalContext.hpp"
+
+#include "Utilities.hpp"
+
+class MTLRenderEngine {
+public:
+    /**
+     * @brief Metal render engine constructor.
+     * @param context The Metal context containing the device, command queue, and library.
+     */
+    MTLRenderEngine(MetalContext& context);
+
+    /**
+     * @brief Metal render engine destructor.
+     * Cleans up Metal resources and GLFW window.
+     */
+    ~MTLRenderEngine();
+
+    /**
+     * @brief Create the Metal render pipeline.
+     */
+    void createRenderPipeline();
+
+    /**
+     * @brief Render the current textures to the window.
+     */
+    void render();
+
+    /**
+     * @brief Set the reconstructed texture from the compute engine.
+     * @param texture The Metal texture containing the reconstructed image.
+     */
+    void setReconstructedTexture(MTL::Texture* texture) { reconstructedTexture = texture; }
+
+    /**
+     * @brief Set the sinogram texture from the compute engine.
+     * @param texture The Metal texture containing the sinogram data.
+     */
+    void setSinogramTexture(MTL::Texture* texture) { sinogramTexture = texture; }
+
+    /**
+     * @brief Set the original phantom texture from the compute engine.
+     * @param texture The Metal texture containing the original phantom image.
+     */
+    void setOriginalPhantomTexture(MTL::Texture* texture) { originalPhantomTexture = texture; }
+
+private:
+    MTL::Device* device;
+    MTL::Library* library;
+    MTL::CommandQueue* commandQueue;
+
+    /* WINDOW & RENDER PIPELINE */
+    GLFWwindow* glfwWindow;
+    NSWindow* metalWindow;
+    CAMetalLayer* metalLayer;
+    MTL::RenderPipelineState* renderPipeline;
+
+    /* TEXTURES */
+    MTL::Texture* colourMapTexture;
+    MTL::Texture* reconstructedTexture;
+    MTL::Texture* sinogramTexture;
+    MTL::Texture* originalPhantomTexture;
+
+    /**
+     * @brief Initialise a GLFW window with a CAMetalLayer for Metal rendering.
+     * This function sets up a GLFW window, configures it for Metal rendering,
+     * and attaches a CAMetalLayer to the window's content view.
+     * Source https://metaltutorial.com/Lesson%201%3A%20Hello%20Metal/1.%20Hello%20Window/
+     */
+    void initWindow();
+
+    /**
+     * @brief GLFW framebuffer size callback to handle window resizing.
+     * @param window The GLFW window that was resized.
+     * @param width The new width of the framebuffer.
+     * @param height The new height of the framebuffer.
+     * Source https://metaltutorial.com/Lesson%201%3A%20Hello%20Metal/3.%20Textures/
+     */
+    static void frameBufferSizeCallback(GLFWwindow* window, int width, int height);
+
+    /**
+     * @brief Resize the Metal framebuffer to match the new window dimensions.
+     * @param width The new width of the framebuffer.
+     * @param height The new height of the framebuffer.
+     */
+    void resizeFrameBuffer(int width, int height);
+
+    /**
+     * @brief Get the next drawable from the CAMetalLayer.
+     * @param nativeLayer The CAMetalLayer instance.
+     * @return A pointer to the next CA::MetalDrawable.
+     * This function bridges between C++ and Objective-C to call the native method.
+     */
+    CA::MetalDrawable* getNextDrawable(CAMetalLayer* nativeLayer);
+
+    // Move to MetalContext or a utility class?
+    MTL::Function* createKernelFn(const char* functionName);
+};
+#endif  // MTLRENDERENGINE_HPP
