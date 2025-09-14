@@ -194,8 +194,8 @@ void logPerformance(
     const Geometry& geom, const int numIterations,
     const std::chrono::duration<double, std::milli>& scanTime,
     const std::chrono::duration<double, std::milli>& projTime,
-    const std::chrono::duration<double, std::milli>& reconTime) {
-    const std::string filename = "logs/performance_log.csv";
+    const std::chrono::duration<double, std::milli>& reconTime, const std::string filename) {
+
 
     std::ofstream logFile;
 

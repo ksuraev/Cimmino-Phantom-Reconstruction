@@ -107,7 +107,7 @@ void MTLComputeEngine::generateProjectionMatrix() {
   // Load projection matrix from binary file - generated using Astra Toolbox
   SparseMatrixHeader header;
   SparseMatrix matrix;
-  loadSparseMatrixBinary("data/projection_256_astra.bin", matrix, header);
+  loadSparseMatrixBinary("../data/projection_256_astra.bin", matrix, header);
   totalNonZeroElements = header.num_non_zero;
 
   // Check sizes match expected
@@ -198,6 +198,8 @@ void MTLComputeEngine::performScan(std::vector<float>& phantomData) {
   float stepSize = 2.0f;
   int numSteps = static_cast<int>(sqrt(float(geom.imageWidth * geom.imageWidth + geom.imageHeight * geom.imageHeight)) / stepSize);
 
+  auto debugBuffer = device->newBuffer(totalRays * numSteps * sizeof(float), MTL::ResourceStorageModeShared);
+
   // Set arguments for scan kernel
   encoder->setComputePipelineState(scanPipeline);
   encoder->setBuffer(phantomBuffer, 0, 0);
@@ -206,6 +208,7 @@ void MTLComputeEngine::performScan(std::vector<float>& phantomData) {
   encoder->setBytes(&imgCenterX, sizeof(float), 3);
   encoder->setBytes(&imgCenterY, sizeof(float), 4);
   encoder->setBytes(&numSteps, sizeof(int), 5);
+  encoder->setBuffer(debugBuffer, 0, 6);
 
   // Perform scan
   dispatchThreads(encoder, scanPipeline, totalRays);
@@ -230,6 +233,22 @@ void MTLComputeEngine::performScan(std::vector<float>& phantomData) {
   // Commit and wait once everything is encoded
   cmdBuffer->commit();
   cmdBuffer->waitUntilCompleted();
+
+  // Read in debug buffer if needed
+  float* debugData = (float*)debugBuffer->contents();
+
+  // Save to CSV
+  std::ofstream file("../data/debug.csv");
+
+
+  for (int ray = 0; ray < geom.nAngles * geom.nDetectors; ray++) {
+    for (int step = 0; step < numSteps; step++) {
+      file << debugData[ray * numSteps + step];
+      if (step < numSteps - 1) file << ",";
+    }
+    file << "\n";
+  }
+  file.close();
 
   // Normalise texture to [0,1] range
   auto startNorm = std::chrono::high_resolution_clock::now();

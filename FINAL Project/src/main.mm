@@ -1,4 +1,5 @@
 // TODO: Add timer function to utilities, add error handling where possible, add comments, readme file, doc, remove releases
+// Add python code to generate phantom data
 // cmake --build build --config Release
 // ./build/MetalCpp
 // rm -rf build
@@ -41,7 +42,7 @@ int main(int argc, char** argv) {
 
         // Generate sinogram for given phantom
         auto startScan = std::chrono::high_resolution_clock::now();
-        std::vector<float> phantomData = loadPhantom("data/phantom_256.txt", geom);
+        std::vector<float> phantomData = loadPhantom("../data/phantom_256.txt", geom);
         mtlComputeEngine.performScan(phantomData);
         auto endScan = std::chrono::high_resolution_clock::now();
 

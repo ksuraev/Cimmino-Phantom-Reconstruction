@@ -23,7 +23,7 @@ public:
 
         // Load precompiled metallib from file
         NS::String* filePath =
-            NS::String::string("./build/metallibrary.metallib", NS::UTF8StringEncoding);
+            NS::String::string("../build/metallibrary.metallib", NS::UTF8StringEncoding);
         NS::Error* error;
         library = device->newLibrary(filePath, &error);
         if (error) {

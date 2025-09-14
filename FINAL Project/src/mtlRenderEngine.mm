@@ -63,7 +63,7 @@ void MTLRenderEngine::createRenderPipeline() {
   NS::Error* error = nullptr;
 
   // Source for colour values https://github.com/BIDS/colormap/blob/master/colormaps.py
-  auto colourMapData = loadColourMapTexture("data/magma.txt");
+  auto colourMapData = loadColourMapTexture("../data/magma.txt");
 
   long numColors = colourMapData.size() / 4;
 
@@ -157,7 +157,7 @@ void MTLRenderEngine::render() {
     // Set pipeline state, textures and draw
     encoder->setRenderPipelineState(renderPipeline);
     encoder->setFragmentTexture(textureToDisplay, 0);
-    encoder->setFragmentTexture(viridisTexture, 1);
+    encoder->setFragmentTexture(colourMapTexture, 1);
     encoder->drawPrimitives(MTL::PrimitiveTypeTriangleStrip, NS::UInteger(0), NS::UInteger(4));
     encoder->endEncoding();
 

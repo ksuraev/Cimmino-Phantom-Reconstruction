@@ -24,7 +24,8 @@ set(CMAKE_LINKER_FLAGS "${CMAKE_LINKER_FLAGS}")
 # Tell CMake where to find the metal-cpp headers
 include_directories(metal-cpp)
 
-add_executable(Project ${CMAKE_SOURCE_DIR}/src/*)
+file(GLOB_RECURSE PROJECT_SOURCES ${CMAKE_SOURCE_DIR}/src/*.cpp ${CMAKE_SOURCE_DIR}/src/*.mm)
+add_executable(Project ${PROJECT_SOURCES})
 
 # Find and include GLFW and Apple frameworks
 find_package(glfw3 REQUIRED)
