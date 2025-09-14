@@ -76,7 +76,7 @@ std::vector<float> loadPhantom(const char* filename, const Geometry& geom) {
     return phantomData;
 }
 
-bool loadSinogram(const std::string& filename, std::vector<float>& sinogram, uint numRays) {
+bool loadSinogram(const std::string& filename, std::vector<float>& sinogram, unsigned int numRays) {
     std::ifstream in(filename, std::ios::binary);
     if (!in) return false;
     sinogram.resize(numRays);
@@ -158,3 +158,4 @@ void saveImage(const std::string& filename,
     outFile.close();
     std::cout << "Image data successfully saved to '" << filename << "'." << std::endl;
 }
+

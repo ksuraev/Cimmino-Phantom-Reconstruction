@@ -1,5 +1,5 @@
 //  g++-15 -o sequential sequential.cpp Utilities.cpp
-#include "Utilities.hpp"
+#include "../include/Utilities.hpp"
 
 
 #define IMAGE_WIDTH 256
@@ -111,14 +111,14 @@ int main(int argc, const char* argv[]) {
     SparseMatrix projector;
 
     // Load projection matrix from file
-    if (!loadSparseMatrixBinary("projection_256.bin", projector, header, totalRays)) {
+    if (!loadSparseMatrixBinary("../dataprojection_256.bin", projector, header, totalRays)) {
         std::cerr << "Failed to load sparse projection matrix." << std::endl;
         return -1;
     }
 
     // Load sinogram from file
     std::vector<float> sinogram(totalRays, 0.0f);
-    loadSinogram("sinogram_256.bin", sinogram, totalRays);
+    loadSinogram("../data/sinogram_256.bin", sinogram, totalRays);
 
     // Compute row weights and total weight sum
     float totalWeightSum = 0.0f;

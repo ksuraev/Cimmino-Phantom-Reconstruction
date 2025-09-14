@@ -14,6 +14,7 @@
 #include <sstream>
 #include <string>
 #include <vector>
+#include <functional>
 #include <chrono>
 #include <iomanip>
 #include <cmath>
@@ -42,19 +43,32 @@ struct SparseMatrix {
 bool loadSparseMatrixBinary(const std::string& binFileName, SparseMatrix& matrix, SparseMatrixHeader header, size_t totalRays);
 
 // Load sparse projection matrix from binary file
-bool loadSinogram(const std::string& filename, std::vector<float>& sinogram, uint numRays);
+bool loadSinogram(const std::string& filename, std::vector<float>& sinogram, unsigned int numRays);
 
 // Load phantom from file
 std::vector<float> loadPhantom(const char* filename, const Geometry& geom);
 
 // Load sinogram
-bool loadSinogram(const std::string& filename, std::vector<float>& sinogram, uint numRays);
+bool loadSinogram(const std::string& filename, std::vector<float>& sinogram, unsigned int numRays);
 
 void logPerformance(const std::string& executionType,
     const Geometry& geom, const int numIterations,
-    const double reconstructionTime, const std::string filename = "seq_performance_log.csv");
+    const double reconstructionTime, const std::string filename = "../logs/performance_log.csv");
 
 void saveImage(const std::string& filename,
     const std::vector<float>& imageData, unsigned int width,
     unsigned int height);
+
+/**
+* @brief Times the execution of a method and returns the duration in microseconds.
+* @param methodToTime The method to be timed.
+* @return The duration of the method execution in microseconds.
+* Inspired by Maksym's code from lecture 14/07/2025
+*/
+static double timeMethod_ms(const std::function<void()>& methodToTime) {
+    auto start = std::chrono::high_resolution_clock::now();
+    methodToTime();
+    auto end = std::chrono::high_resolution_clock::now();
+    return std::chrono::duration_cast<std::chrono::microseconds>(end - start).count() / 1000.0;
+}
 #endif
