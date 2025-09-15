@@ -1,1 +1,80 @@
 g++-15 -o sequential sequential.cpp ../utilities/Utilities.cpp
+# Image Reconstruction with Cimmino's Algorithm
+This repository features a Metal-Cpp implementation of Cimmino's algorithm for image reconstruction. The projection matrix is generated using Astra-Toolbox, and the sinogram and reconstructed image are computed in Metal Shaders. The implementation reconstructs a Shepp-Logan phantom from its sinogram. Sequential and OpenMP versions are provided for comparison.
+
+## Requirements
+This projest requires the metal-cpp library and Apple's Metal framework to run the GPU version, as well as GLFW for window management and image display.  It is designed to run in VSCode with CMake. 
+The sequential and OpenMP versions can be compiled with g++ or clang++.
+
+## Files
+- `CMakeLists.txt`: CMake configuration file for building the project.
+- `src/`: Contains the source code for the Metal-Cpp implementation.
+- `include/`: Contains header files for the project.
+- `shaders/`: Contains Metal shader files for GPU computations.
+- `Other-Implementations/`: Contains sequential and OpenMP implementations for comparison.
+- `data/`: Contains input data files such as the projection matrix and output files like the sinogram and reconstructed images.
+- `logs/`: Contains log files for performance measurements.
+- `Doc/`: Contains documentation and the project report.
+
+
+## Usage
+Metal-Cpp Version:
+1. Ensure you have CMake and a compatible C++ compiler installed.
+2. From the root directory, build the project:
+   ```bash
+    cmake -S . -B build
+    cmake --build build --config Release
+   ```
+3. Run CMake to configure the project:
+   ```bash
+    ./build/project
+   ```
+4. Optionally, pass the number of iterations as a command-line argument (default is 1000):
+   ```bash
+    ./build/project [num_iterations]
+   ```
+5. The sinogram, reconstructed image and original phantom will be displayed in a window (use the left and right arrow keys to switch between views). The reconstructed image will also be saved in the `data/` directory.
+6. Performance logs will be saved in the `logs/` directory.
+7. In order to use a different projection matrix, e.g. for a different image size or number of angles, it must be generated using Astra-Toolbox using the Python script `projection_astra.py` in the `data/` directory. You must have Astra-Toolbox installed in your Python environment. The matrix should be saved in the `data/` directory and the path to the file should be updated in `src/main.mm`. Then, you must generate the phantom image with the same parameters using the `phantom_astra.py` script in the `data/` directory. The path to the phantom image should be updated in `src/main.mm` as well. Finally, you must update the image dimensions and number of angles in `src/main.mm` to match the new projection matrix and phantom image. Not setting these parameters correctly will lead to incorrect results or crashes.
+
+Sequential Version:
+1. Navigate to the `Other-Implementations` directory:
+   ```bash
+    cd Other-Implementations
+   ```
+   2. To run the execution script which compiles and runs the sequential and OpenMP versions for various iteration counts, you must first set the environment variable `PROJECT_BASE_PATH` to the `Other-Implementations` directory path. For example:
+   ```bash
+    export PROJECT_BASE_PATH=/path/to/Other-Implementations
+    ``` 
+    Then, run the script:
+    ```bash
+    ./execution_script.sh
+    ```
+3. Alternatively, you can compile and run the sequential version directly:
+    ```bash
+    cd Sequential
+     g++-15 -o sequential sequential.cpp ../utilities/Utilities.cpp
+     ./sequential [num_iterations]
+    ```
+4. The reconstructed image will be saved in the `data/` directory. To view the reconstructed images, use the `view_reconstructed_image.py` script in the `data/` directory.
+OpenMP Version:
+1. Navigate to the `Other-Implementations` directory:
+   ```bash
+    cd Other-Implementations
+   ```
+2. To run the execution script which compiles and runs the sequential and OpenMP versions for various iteration counts, you must first set the environment variable `PROJECT_BASE_PATH` to the `Other-Implementations` directory path. For example:
+   ```bash
+    export PROJECT_BASE_PATH=/path/to/Other-Implementations
+    ``` 
+    Then, run the script:
+    ```bash
+    ./execution_script.sh
+    ```
+3. Alternatively, you can compile and run the OpenMP version directly:
+    ```bash
+     cd OpenMP
+     g++-15 -fopenmp -o openmp openmp.cpp ../utilities/Utilities.cpp
+     ./openmp [num_iterations]
+    ```
+5. The reconstructed image will be saved in the `data/` directory. To view the reconstructed images, use the `view_reconstructed_image.py` script in the `data/` directory.
+

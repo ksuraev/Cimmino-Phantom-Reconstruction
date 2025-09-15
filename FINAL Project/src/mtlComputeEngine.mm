@@ -66,11 +66,11 @@ void MTLComputeEngine::dispatchThreads(MTL::ComputeCommandEncoder* encoder, MTL:
   encoder->dispatchThreads(gridSize, MTL::Size(threadGroupSize, 1, 1));
 }
 
-void MTLComputeEngine::generateProjectionMatrix() {
+void MTLComputeEngine::generateProjectionMatrix(const std::string& projectionFileName) {
   // Load projection matrix from binary file - generated using Astra Toolbox
   SparseMatrixHeader header;
   SparseMatrix matrix;
-  loadSparseMatrixBinary(basePath + "/data/projection_256_astra.bin", matrix, header);
+  loadSparseMatrixBinary(basePath + "/data/" + projectionFileName, matrix, header);
 
   totalNonZeroElements = header.num_non_zero;
 
@@ -423,9 +423,9 @@ std::chrono::duration<double, std::milli> MTLComputeEngine::reconstructImage(int
 
   std::cout << "Reconstruction complete. Reconstructed image copied to texture." << std::endl;
 
-  /* Uncomment to save reconstructed image to .txt file for separate viewing */
-  // std::string imageFileName = basePath + "/data/metal_" + std::to_string(numIterations) + ".txt";
-  // saveTextureToFile(imageFileName, reconstructedTexture);
+  // Save reconstructed texture to file
+  std::string imageFileName = basePath + "/data/metal_" + std::to_string(numIterations) + ".txt";
+  saveTextureToFile(imageFileName, reconstructedTexture);
 
   return totalReconstructTime;
 }

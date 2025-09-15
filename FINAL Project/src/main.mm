@@ -12,6 +12,10 @@
 #define IMAGE_HEIGHT 256
 #define NUM_ANGLES 90 // Number of projection angles
 
+// Name of files in data directory
+const std::string PROJECTION_MATRIX_FILE = "projection_256_astra.bin";
+const std::string PHANTOM_FILE = "phantom_256.txt";
+
 int main(int argc, char** argv) {
     if (IMAGE_WIDTH != IMAGE_HEIGHT) {
         std::cerr << "Image width and height must be the same." << std::endl;
@@ -39,11 +43,11 @@ int main(int argc, char** argv) {
         // MTLRenderEngine mtlRenderEngine = MTLRenderEngine(context);
 
         // Generate projection matrix 
-        double projectionTime = timeMethod_ms([&]() { mtlComputeEngine.generateProjectionMatrix();});
+        double projectionTime = timeMethod_ms([&]() { mtlComputeEngine.generateProjectionMatrix(PROJECTION_MATRIX_FILE);});
 
         // Generate sinogram for loaded phantom
         std::string basePath = PROJECT_BASE_PATH;
-        std::vector<float> phantomData = loadPhantom(basePath + "/data/phantom_256.txt", geom);
+        std::vector<float> phantomData = loadPhantom(basePath + "/data/" + PHANTOM_FILE, geom);
         double scanTime = timeMethod_ms([&]() {
             mtlComputeEngine.performScan(phantomData);
             });
