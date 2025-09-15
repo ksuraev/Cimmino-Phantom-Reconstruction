@@ -1,7 +1,5 @@
-// xcrun -sdk macosx metal -o metallibrary.ir -c kernels.metal
-// xcrun -sdk macosx metallib -o metallibrary.metallib metallibrary.ir
-#include <simd/simd.h>
 
+#include <simd/simd.h>
 #include <metal_stdlib>
 using namespace metal;
 

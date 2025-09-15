@@ -36,6 +36,11 @@ Metal-Cpp Version:
 5. The sinogram, reconstructed image and original phantom will be displayed in a window (use the left and right arrow keys to switch between views). The reconstructed image will also be saved in the `data/` directory.
 6. Performance logs will be saved in the `logs/` directory.
 7. In order to use a different projection matrix, e.g. for a different image size or number of angles, it must be generated using Astra-Toolbox using the Python script `projection_astra.py` in the `data/` directory. You must have Astra-Toolbox installed in your Python environment. The matrix should be saved in the `data/` directory and the path to the file should be updated in `src/main.mm`. Then, you must generate the phantom image with the same parameters using the `phantom_astra.py` script in the `data/` directory. The path to the phantom image should be updated in `src/main.mm` as well. Finally, you must update the image dimensions and number of angles in `src/main.mm` to match the new projection matrix and phantom image. Not setting these parameters correctly will lead to incorrect results or crashes.
+8. The metal shaders are compiled automatically by the CMake build process. If you modify the shaders, you must re-run the CMake build process to recompile them. The compiled `.metallib` files are saved in the `build` directory. If you wish to compile the shaders manually, you can use the `xcrun -sdk macosx metal` command. For example:
+   ```bash
+    xcrun -sdk macosx metal -o metallibrary.ir -c kernels.metal
+    xcrun -sdk macosx metallib -o metallibrary.metallib metallibrary.ir
+   ```
 
 Sequential Version:
 1. Navigate to the `Other-Implementations` directory:
