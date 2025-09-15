@@ -1,31 +1,28 @@
-//  g++-15 -o sequential sequential.cpp ../utilities/Utilities.cpp
+/**
+ * @file Sequential.cpp
+ * @brief Sequential implementation of Cimmino's algorithm for CT image reconstruction.
+ */
+
 #include "../include/Utilities.hpp"
 
 #define IMAGE_WIDTH 256
 #define IMAGE_HEIGHT 256
 #define NUM_ANGLES 90
 
-/**
- * @brief Compute the squared L2 norm of each row in the sparse matrix and the total weight sum.
- * @param projector Sparse projection matrix in CSR format.
- * @param rowWeights Vector to store the squared L2 norm of each row.
- * @param totalRays Total number of rays (rows in the sinogram).
- * @param totalWeightSum Variable to store the total sum of row weights.
- */
-void computeRowWeights(const SparseMatrix& projector, size_t totalRays, float& totalWeightSum) {
-    std::vector<float> rowWeights(totalRays, 0.0f);
-
+ /**
+  * @brief Compute the squared L2 norm of each row in the sparse matrix and the total weight sum.
+  * @param projector Sparse projection matrix in CSR format.
+  * @param totalRays Total number of rays (rows in the sinogram).
+  * @param totalWeightSum Variable to store the total sum of row weights.
+  */
+void computeTotalWeight(const SparseMatrix& projector, size_t totalRays, float& totalWeightSum) {
+    totalWeightSum = 0.0f;
     for (size_t r = 0; r < totalRays; ++r) {
-        int rowStart = projector.rows[r];
-        int rowEnd = projector.rows[r + 1];
-
-        for (int i = rowStart; i < rowEnd; ++i) {
-            rowWeights[r] += projector.vals[i] * projector.vals[i];
-        }
+        double rowNormSq = 0.0f;
+        for (int i = projector.rows[r]; i < projector.rows[r + 1]; ++i)
+            rowNormSq += static_cast<double>(projector.vals[i] * projector.vals[i]);
+        totalWeightSum += static_cast<float>(rowNormSq);;
     }
-
-    // Compute total weight sum
-    totalWeightSum = std::accumulate(rowWeights.begin(), rowWeights.end(), 0.0f);
 }
 
 /**
@@ -35,6 +32,7 @@ void computeRowWeights(const SparseMatrix& projector, size_t totalRays, float& t
  * @param header Header information for the sparse matrix.
  * @param totalRays Total number of rays (rows in the sinogram).
  * @param sinogram Input sinogram data.
+ * @param totalWeightSum Total sum of row weights.
  * @return Reconstructed image as a flat vector.
  */
 void cimminoReconstruct(int maxIterations,
@@ -83,6 +81,12 @@ void cimminoReconstruct(int maxIterations,
     std::cout << "Reconstruction for " << maxIterations << " iterations complete." << std::endl;
 }
 
+/**
+ * @brief Calculate the error norm between the phantom and the reconstructed image.
+ * @param phantom The original phantom image as a flat vector.
+ * @param approximation The reconstructed image as a flat vector.
+ * @return The L2 norm of the error between the phantom and the approximation.
+ */
 double calculateErrorNorm(std::vector<float>& phantom, std::vector<float>& approximation) {
     if (phantom.size() != approximation.size()) {
         std::cerr << "Error: Vectors must be of the same size to calculate error norm." << std::endl;
@@ -105,12 +109,12 @@ double calculateErrorNorm(std::vector<float>& phantom, std::vector<float>& appro
         }
     }
 
+    // Compute L2 norm of the difference
     double sse = 0.0;
     for (size_t i = 0; i < IMAGE_WIDTH * IMAGE_HEIGHT; ++i) {
         double d = (double)A[i] - (double)P[i];
         sse += d * d;
     }
-    // Print sse
     double norm = std::sqrt(sse);
     std::cout << "Sum of Squared Errors (SSE): " << norm << std::endl;
     return norm;
@@ -167,7 +171,7 @@ int main(int argc, const char* argv[]) {
 
     // Compute row weights and total weight sum
     float totalWeightSum = 0.0f;
-    computeRowWeights(projector, totalRays, totalWeightSum);
+    computeTotalWeight(projector, totalRays, totalWeightSum);
 
     // Reconstruct image and time execution
     std::vector<float> reconstructedImage(IMAGE_WIDTH * IMAGE_HEIGHT, 0.0f);
@@ -178,6 +182,7 @@ int main(int argc, const char* argv[]) {
 
     std::cout << "Total reconstruction time (ms): " << totalReconstructTime << std::endl;
 
+    // Save reconstructed image to file
     std::string imageSaveFileName = basePath + "data/image_seq_" + std::to_string(numIterations) + ".txt";
 
     // Calculate error norm between phantom and reconstruction

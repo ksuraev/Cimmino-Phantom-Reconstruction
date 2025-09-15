@@ -1,22 +1,19 @@
-//
-//  MTLComputeEngine.mm
-//  RenderPipeline
-//
-//  Created by Kate Suraev on 5/9/2025.
-//
+/**
+ * @file mtlComputeEngine.mm
+ * @brief Implementation of the MTLComputeEngine class for Metal-based CT reconstruction.
+ * This class handles the generation of the projection matrix, performing the scan to create a sinogram,
+ * and reconstructing the image using the Cimmino's algorithm. It utilises Metal compute shaders for parallel processing.
+ * See mtlComputeEngine.hpp for class definition.
+ * See include/kernels.metal for Metal shader implementations.
+ */
 
 #include "../include/mtlComputeEngine.hpp"
-/**
- * @brief Constructor for the MTLComputeEngine class.
- * @param geom The geometry parameters for the CT scan.
- */
+
+
 MTLComputeEngine::MTLComputeEngine(MetalContext& context, const Geometry& geom) : geom(geom)
 {
   // Set total rays - one per angle-detector pair
   totalRays = geom.nAngles * geom.nDetectors;
-
-  // Reserve space for offsets vector
-  offsets.resize(totalRays + 1, 0);
 
   // Initialise device, command queue and default library
   device = context.getDevice();
@@ -24,38 +21,18 @@ MTLComputeEngine::MTLComputeEngine(MetalContext& context, const Geometry& geom) 
   defaultLibrary = context.getLibrary();
 
   // Set geometry buffer
-  geomBuffer = device->newBuffer(&geom, sizeof(Geometry),
-    MTL::ResourceStorageModeShared);
+  geomBuffer = device->newBuffer(&geom, sizeof(Geometry), MTL::ResourceStorageModeShared);
   if (!geomBuffer) {
     std::cerr << "Error: Failed to create geometry buffer. " << std::endl;
     std::exit(-1);
   }
 }
 
-MTLComputeEngine::~MTLComputeEngine() {
-  //   geomBuffer->release();
-  //   //   renderPipeline->release();
-  //   reconstructedTexture->release();
-  //   sinogramTexture->release();
-  //   originalPhantomTexture->release();
-  //   commandQueue->release();
-  //   defaultLibrary->release();
-  //   //   glfwDestroyWindow(glfwWindow);
-  //   //   glfwTerminate();
-  //   device->release();
-}
+MTLComputeEngine::~MTLComputeEngine() {}
 
-
-/**
- * @brief Create a compute pipeline state for a given kernel function.
- * @param function The kernel function to create the pipeline for.
- * @return The created compute pipeline state.
- */
-MTL::ComputePipelineState*
-MTLComputeEngine::createComputePipeline(MTL::Function* function) {
+MTL::ComputePipelineState* MTLComputeEngine::createComputePipeline(MTL::Function* function) {
   NS::Error* error = nullptr;
-  MTL::ComputePipelineState* pipeline =
-    device->newComputePipelineState(function, &error);
+  MTL::ComputePipelineState* pipeline = device->newComputePipelineState(function, &error);
   if (!pipeline) {
     std::cerr << "Error: Failed to create pipeline state. " << pipeline->label()
       << " " << error->localizedDescription()->utf8String() << std::endl;
@@ -65,11 +42,7 @@ MTLComputeEngine::createComputePipeline(MTL::Function* function) {
   return pipeline;
 }
 
-/**
- * @brief Create a kernel function from the default library.
- * @param functionName The name of the kernel function to create.
- * @return The created kernel function.
- */
+
 MTL::Function* MTLComputeEngine::createKernelFn(const char* functionName) {
   MTL::Function* fn = defaultLibrary->newFunction(NS::String::string(functionName, NS::UTF8StringEncoding));
   if (!fn) {
@@ -80,14 +53,8 @@ MTL::Function* MTLComputeEngine::createKernelFn(const char* functionName) {
   return fn;
 }
 
-/**
- * @brief Calculate grid and thread group sizes and dispatch threads for a
- * compute kernel.
- * @param encoder The compute command encoder.
- * @param pipeline The compute pipeline state.
- * @param totalElements The total number of elements to process.
- */
-void dispatchThreads(MTL::ComputeCommandEncoder* encoder, MTL::ComputePipelineState* pipeline, size_t totalElements) {
+
+void MTLComputeEngine::dispatchThreads(MTL::ComputeCommandEncoder* encoder, MTL::ComputePipelineState* pipeline, size_t totalElements) {
   // Calculate thread group size
   NS::UInteger threadGroupSize = pipeline->maxTotalThreadsPerThreadgroup();
 
@@ -99,13 +66,8 @@ void dispatchThreads(MTL::ComputeCommandEncoder* encoder, MTL::ComputePipelineSt
   encoder->dispatchThreads(gridSize, MTL::Size(threadGroupSize, 1, 1));
 }
 
-
-/**
- * @brief Generate the projection matrix and calculate total row weights sum.
- */
 void MTLComputeEngine::generateProjectionMatrix() {
   // Load projection matrix from binary file - generated using Astra Toolbox
-  std::string basePath = PROJECT_BASE_PATH;
   SparseMatrixHeader header;
   SparseMatrix matrix;
   loadSparseMatrixBinary(basePath + "/data/projection_256_astra.bin", matrix, header);
@@ -129,14 +91,12 @@ void MTLComputeEngine::generateProjectionMatrix() {
   colsBuffer = device->newBuffer(matrix.cols.data(), matrix.cols.size() * sizeof(int), MTL::ResourceStorageModeShared);
   valsBuffer = device->newBuffer(matrix.vals.data(), matrix.vals.size() * sizeof(float), MTL::ResourceStorageModeShared);
 
-  // Check the buffers are not null
   if (!offsetsBuffer || !colsBuffer || !valsBuffer) {
     std::cerr << "Error: Failed to create projection matrix buffers. " << std::endl;
     exit(-1);
   }
 
-
-  // Calculate total weight sum for Cimmino's algorithm
+  // Calculate total row weight sum for Cimmino's algorithm
   totalWeightSum = 0.0f;
   for (size_t i = 0; i < totalRays; ++i) {
     double rowNormSq = 0.0;
@@ -149,6 +109,7 @@ void MTLComputeEngine::generateProjectionMatrix() {
 
 
 void MTLComputeEngine::performScan(std::vector<float>& phantomData) {
+  // Flip phantom data vertically for correct orientation
   std::vector<float> flippedPhantomData = flipImageVertically(phantomData, geom.imageWidth, geom.imageHeight);
 
   // Initialise texture for phantom
@@ -167,7 +128,6 @@ void MTLComputeEngine::performScan(std::vector<float>& phantomData) {
 
   // Initialise sinogram buffer
   sinogramBuffer = device->newBuffer(totalRays * sizeof(float), MTL::ResourceStorageModeShared);
-
   if (!sinogramBuffer) {
     std::cerr << "Error: Failed to create sinogram buffer. " << std::endl;
     exit(-1);
@@ -186,10 +146,9 @@ void MTLComputeEngine::performScan(std::vector<float>& phantomData) {
   float imgCenterX = static_cast<float>(geom.imageWidth) / 2.0f;
   float imgCenterY = static_cast<float>(geom.imageHeight) / 2.0f;
 
-  // Compute number of steps
+  // Compute number of steps for ray traversal
   float stepSize = 2.0f;
   int numSteps = static_cast<int>(ceil(sqrt(float(geom.imageWidth * geom.imageWidth) + geom.imageHeight * geom.imageHeight) / stepSize));
-  // auto debugBuffer = device->newBuffer(totalRays * numSteps * sizeof(float), MTL::ResourceStorageModeShared);
 
   // Set arguments for scan kernel
   encoder->setComputePipelineState(scanPipeline);
@@ -212,12 +171,10 @@ void MTLComputeEngine::performScan(std::vector<float>& phantomData) {
     std::cerr << "failed to create sinogram texture" << std::endl;
   }
 
-  // source
-  // https://developer.apple.com/documentation/metal/reading-pixel-data-from-a-drawable-texture
-  // https://developer.apple.com/documentation/metal/mtlblitcommandencoder
+  // source https://developer.apple.com/documentation/metal/reading-pixel-data-from-a-drawable-texture
+  // source https://developer.apple.com/documentation/metal/mtlblitcommandencoder
   auto blitEncoder = cmdBuffer->blitCommandEncoder();
   blitEncoder->copyFromBuffer(sinogramBuffer, 0, geom.nDetectors * sizeof(float), 0, MTL::Size(geom.nDetectors, geom.nAngles, 1), sinogramTexture, 0, 0, MTL::Origin(0, 0, 0));
-
   blitEncoder->endEncoding();
 
   // Commit and wait once everything is encoded
@@ -227,23 +184,14 @@ void MTLComputeEngine::performScan(std::vector<float>& phantomData) {
   findMaxValInTexture(sinogramTexture, maxValSinogramBuffer);
   normaliseTexture(sinogramTexture, maxValSinogramBuffer);
 
-  // Save non-normalised sinogram for other programs
-  // std::string basePath = PROJECT_BASE_PATH;
+  /* Uncomment to save non-normalised sinogram buffer to .bin file */
   // saveSinogram(basePath + "/data/sinogram_256.bin", sinogramBuffer, totalRays);
 
-  // If needed, save normalised sinogram to .txt file
-  // std::string basePath = PROJECT_BASE_PATH;
+  /* Uncomment to save normalised sinogram texture to .txt file */
   // saveTextureToFile(basePath + "/data/sinogram_256.txt", sinogramTexture);
 }
 
-/**
- * @brief Find the maximum value in a texture using a two-pass reduction
- * approach.
- * @param texture The input texture to find the maximum value in.
- * @param maxValbuffer The output buffer to store the maximum value.
- */
-void MTLComputeEngine::findMaxValInTexture(MTL::Texture* texture,
-  MTL::Buffer*& maxValbuffer) {
+void MTLComputeEngine::findMaxValInTexture(MTL::Texture* texture, MTL::Buffer*& maxValbuffer) {
   if (!texture) {
     std::cerr << "Input texture is null." << std::endl;
     exit(-1);
@@ -312,13 +260,8 @@ void MTLComputeEngine::findMaxValInTexture(MTL::Texture* texture,
   cmdBuffer->waitUntilCompleted();
 }
 
-/**
- * @brief Normalise a texture by dividing each pixel by the maximum value.
- * @param texture The input texture to be normalised.
- * @param maxValBuffer The buffer containing the maximum value.
- */
-void MTLComputeEngine::normaliseTexture(MTL::Texture* texture,
-  MTL::Buffer*& maxValBuffer) {
+
+void MTLComputeEngine::normaliseTexture(MTL::Texture* texture, MTL::Buffer*& maxValBuffer) {
   if (!texture) {
     std::cerr << "Texture to be normalised is null." << std::endl;
     exit(-1);
@@ -357,13 +300,7 @@ void MTLComputeEngine::normaliseTexture(MTL::Texture* texture,
 }
 
 
-/**
- * @brief Perform image reconstruction using Cimmino's algorithm.
- * @param numIterations The number of iterations to perform.
- * @return The duration taken for the reconstruction process.
- */
-std::chrono::duration<double, std::milli>
-MTLComputeEngine::reconstructImage(int numIterations, double& finalUpdateNorm) {
+std::chrono::duration<double, std::milli> MTLComputeEngine::reconstructImage(int numIterations, double& finalUpdateNorm) {
 
   // Initialise reconstruction and update functions
   auto cimminoFn = createKernelFn("cimminosReconstruction");
@@ -394,18 +331,16 @@ MTLComputeEngine::reconstructImage(int numIterations, double& finalUpdateNorm) {
   cmdBuffer->commit();
   cmdBuffer->waitUntilCompleted();
 
-  // Start timing reconstruction
   std::cout << "Starting reconstruction for " << numIterations << " iterations..." << std::endl;
 
+  // Start timing reconstruction
   auto startTime = std::chrono::high_resolution_clock::now();
 
-
   for (int i = 0; i < numIterations; ++i) {
+    // Reset command buffer for each iteration
     cmdBuffer = commandQueue->commandBuffer();
+
     // Clear the update buffer before each iteration
-    // MTL::BlitCommandEncoder* blitEncoder = cmdBuffer->blitCommandEncoder();
-    // blitEncoder->fillBuffer(updateBuffer, NS::Range(0, imageSize * sizeof(float)), 0);
-    // blitEncoder->endEncoding();
     memset(updateBuffer->contents(), 0, updateBuffer->length());
 
     // Dispatch the Cimmino reconstruction kernel
@@ -422,7 +357,6 @@ MTLComputeEngine::reconstructImage(int numIterations, double& finalUpdateNorm) {
     dispatchThreads(encoder, cimminoPipeline, totalRays);
     encoder->endEncoding();
 
-
     // Dispatch the apply update kernel to get the new image estimate
     encoder = cmdBuffer->computeCommandEncoder();
     encoder->setComputePipelineState(applyUpdatePipeline);
@@ -436,7 +370,6 @@ MTLComputeEngine::reconstructImage(int numIterations, double& finalUpdateNorm) {
     cmdBuffer->waitUntilCompleted();
   }
 
-
   // We time reconstruction loop only for direct comparison to sequential program
   auto endTime = std::chrono::high_resolution_clock::now();
   std::chrono::duration<double, std::milli> totalReconstructTime = endTime - startTime;
@@ -446,7 +379,7 @@ MTLComputeEngine::reconstructImage(int numIterations, double& finalUpdateNorm) {
   // Transpose the reconstructed image for correct orientation
   float* imageData = static_cast<float*>(reconstructedBuffer->contents());
 
-  // Transpose the matrix in place
+  // Transpose the image data matrix in place
   for (size_t y = 0; y < height; ++y) {
     for (size_t x = y + 1; x < width; ++x) {
       std::swap(imageData[y * width + x], imageData[x * width + y]);
@@ -456,9 +389,10 @@ MTLComputeEngine::reconstructImage(int numIterations, double& finalUpdateNorm) {
   // Notify device that the buffer has been modified
   reconstructedBuffer->didModifyRange(NS::Range(0, imageSize * sizeof(float)));
 
-  // Compute error norm 
+  // Compute error norm between reconstructed image and original phantom
   float* phantomData = static_cast<float*>(phantomBuffer->contents());
   const float* P = phantomData;  // already flipped when loaded
+
   double sse = 0.0L;
   for (size_t k = 0; k < imageSize; ++k) {
     double d = (double)imageData[k] - (double)P[k];
@@ -466,7 +400,6 @@ MTLComputeEngine::reconstructImage(int numIterations, double& finalUpdateNorm) {
   }
   finalUpdateNorm = std::sqrt((double)sse);
   std::cout << "Final Error Norm = " << finalUpdateNorm << std::endl;
-
 
   // Create texture for reconstructed image
   cmdBuffer = commandQueue->commandBuffer();
@@ -488,15 +421,11 @@ MTLComputeEngine::reconstructImage(int numIterations, double& finalUpdateNorm) {
   cmdBuffer->commit();
   cmdBuffer->waitUntilCompleted();
 
-  // findMaxValInTexture(reconstructedTexture, maxValReconBuffer);
-  // normaliseTexture(reconstructedTexture, maxValReconBuffer);
-
   std::cout << "Reconstruction complete. Reconstructed image copied to texture." << std::endl;
 
-  // If needed, uncomment to save reconstructed texture to file
-  std::string basePath = PROJECT_BASE_PATH;
-  std::string imageFileName = basePath + "/data/reconstructed_" + std::to_string(numIterations) + ".txt";
-  saveTextureToFile(imageFileName, reconstructedTexture);
+  /* Uncomment to save reconstructed image to .txt file for separate viewing */
+  // std::string imageFileName = basePath + "/data/metal_" + std::to_string(numIterations) + ".txt";
+  // saveTextureToFile(imageFileName, reconstructedTexture);
 
   return totalReconstructTime;
 }

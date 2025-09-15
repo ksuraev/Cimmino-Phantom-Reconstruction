@@ -1,5 +1,13 @@
+/**
+ * @file mtlRenderEngine.hpp
+ * @brief Header file for the MTLRenderEngine class, which handles rendering using Metal.
+ * This class handles the setup of a GLFW window with a CAMetalLayer,
+ * creation of the Metal render pipeline, and rendering of textures.
+ */
 #ifndef MTLRENDERENGINE_HPP
 #define MTLRENDERENGINE_HPP
+
+ // Using GLFW for window management with Metal-cpp
 #ifdef __OBJC__
 #define GLFW_INCLUDE_NONE
 #import <GLFW/glfw3.h>
@@ -7,7 +15,6 @@
 #import <GLFW/glfw3native.h>
 #endif
 
-// #include <Metal/Metal.hpp>
 #include <QuartzCore/CAMetalLayer.h>
 #include <QuartzCore/QuartzCore.hpp>
 #include "MetalContext.hpp"
@@ -34,7 +41,10 @@ public:
     void createRenderPipeline();
 
     /**
-     * @brief Render the current textures to the window.
+     * @brief Render loop to display textures.
+     * This function handles the rendering loop, showing the sinogram,
+     * reconstructed image, and original phantom textures. Use left/right arrow keys
+     * to switch between textures.
      */
     void render();
 

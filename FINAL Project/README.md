@@ -1,0 +1,1 @@
+g++-15 -o sequential sequential.cpp ../utilities/Utilities.cpp

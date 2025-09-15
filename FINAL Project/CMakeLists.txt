@@ -59,7 +59,7 @@ target_compile_options(Project PRIVATE ${MPI_CXX_COMPILE_FLAGS})
 target_link_options(Project PRIVATE ${MPI_CXX_LINK_FLAGS})
 
 
-set(METAL_SHADER_SRC ${CMAKE_SOURCE_DIR}/include/kernels.metal)
+set(METAL_SHADER_SRC ${CMAKE_SOURCE_DIR}/shaders/kernels.metal)
 set(METAL_LIBRARY_OUTPUT ${CMAKE_BINARY_DIR}/metallibrary.metallib)
 
 add_custom_command(

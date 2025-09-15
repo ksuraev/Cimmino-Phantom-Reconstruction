@@ -1,5 +1,3 @@
-# Load and display multiple images from .txt files in a single window using subplots.
-
 import numpy as np
 import matplotlib.pyplot as plt
 
@@ -16,7 +14,7 @@ def load_image_from_txt(file_path):
         print(f"Error loading image: {e}")
         return None
 
-def display_reconstructions(file_paths):
+def display_multiple_images(file_paths):
     """
     Display multiple images in one window using subplots.
     """
@@ -30,13 +28,12 @@ def display_reconstructions(file_paths):
     for i, file_path in enumerate(file_paths):
         image_data = load_image_from_txt(file_path)
         if image_data is not None:
-            # Transpose and flip the image unless it's "phantom.txt"
+            # Flip the image vertically unless it's "phantom.txt"
             if "phantom_256.txt" not in file_path:
-                image_data = np.transpose(image_data)
-                image_data = np.flipud(image_data)  
+                image_data = np.flipud(image_data)
             axes[i].imshow(image_data, cmap='magma', interpolation='nearest')
             axes[i].set_title(f"Image: {file_path}")
-            axes[i].axis('off')  
+            axes[i].axis('off') 
         else:
             axes[i].set_title(f"Failed to load: {file_path}")
             axes[i].axis('off')
@@ -51,13 +48,13 @@ def display_reconstructions(file_paths):
 if __name__ == "__main__":
     # List of .txt file paths
     file_paths = [
-        "image_seq_10.txt",
-        "image_seq_100.txt",
-        "image_seq_500.txt",
-        "image_seq_1000.txt",
-        "image_seq_2000.txt",
+        "metal_10.txt",
+        "metal_100.txt",
+        "metal_500.txt",
+        "metal_1000.txt",
+        "metal_2000.txt",
         "phantom_256.txt"
     ]
 
     # Display all images in one window
-    display_reconstructions(file_paths)
+    display_multiple_images(file_paths)

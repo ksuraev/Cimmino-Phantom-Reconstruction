@@ -1,3 +1,9 @@
+/**
+ * @file mtlRenderEngine.mm
+ * @brief Implementation of the MTLRenderEngine class for rendering using Metal and GLFW.
+ * This class handles the setup of a GLFW window with a CAMetalLayer,
+ * creation of the Metal render pipeline, and rendering of textures.
+ */
 #include "../include/mtlRenderEngine.hpp"
 
 MTLRenderEngine::MTLRenderEngine(MetalContext& context)
@@ -66,14 +72,13 @@ void MTLRenderEngine::createRenderPipeline() {
   std::string basePath = PROJECT_BASE_PATH;
   auto colourMapData = loadColourMapTexture(basePath + "/data/magma.txt");
 
+  // Create colour map texture
   long numColors = colourMapData.size() / 4;
-
   MTL::TextureDescriptor* texDesc = MTL::TextureDescriptor::texture2DDescriptor(MTL::PixelFormatRGBA32Float, numColors, 1, false);
-
   colourMapTexture = device->newTexture(texDesc);
   colourMapTexture->replaceRegion(MTL::Region(0, 0, numColors, 1), 0, colourMapData.data(), numColors * sizeof(float) * 4);
 
-  // Extract vertex and fragment kernel functions
+  // Extract vertex and fragment kernel functions from library
   MTL::Function* vertexFn = createKernelFn("vertex_main");
   MTL::Function* fragmentFn = createKernelFn("fragment_main");
 
@@ -111,12 +116,7 @@ void keyCallback(GLFWwindow* window, int key, int scancode, int action, int mods
   }
 }
 
-/**
- * @brief Render loop to display textures.
- * This function handles the rendering loop, showing the sinogram,
- * reconstructed image, and original phantom textures. Use left/right arrow keys
- * to switch between textures.
- */
+
 void MTLRenderEngine::render() {
   while (!glfwWindowShouldClose(glfwWindow)) {
     NS::AutoreleasePool* framePool = NS::AutoreleasePool::alloc()->init();
