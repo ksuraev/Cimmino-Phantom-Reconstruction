@@ -21,7 +21,7 @@ public:
   void init();
   void generateProjectionMatrix();
   void performScan(std::vector<float>& phantomData);
-  std::chrono::duration<double, std::milli> reconstructImage(int numIterations);
+  std::chrono::duration<double, std::milli> reconstructImage(int numIterations, double& finalUpdateNorm);
 
   // Getters for device and command queue
   MTL::Texture* getReconstructedTexture() const { return reconstructedTexture; }

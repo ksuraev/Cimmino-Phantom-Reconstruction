@@ -17,6 +17,7 @@
 #include <functional>
 #include <chrono>
 #include <iomanip>
+#include <cstring>
 #include <cmath>
 #include <stdexcept>
 #include <cstdlib>
@@ -56,12 +57,15 @@ bool loadSinogram(const std::string& filename, std::vector<float>& sinogram, uns
 
 void logPerformance(const std::string& executionType,
     const Geometry& geom, const int numIterations,
-    const double reconstructionTime, const std::string& filename);
+    const double reconstructionTime,
+    const double finalErrorNorm,
+    const std::string& filename);
 
 void saveImage(const std::string& filename,
     const std::vector<float>& imageData, unsigned int width,
     unsigned int height);
 
+std::vector<float> flipImageVertically(const std::vector<float>& originalData, int width, int height);
 /**
 * @brief Times the execution of a method and returns the duration in microseconds.
 * @param methodToTime The method to be timed.

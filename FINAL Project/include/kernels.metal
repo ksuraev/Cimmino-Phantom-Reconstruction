@@ -14,60 +14,6 @@ struct Geometry {
 };
 
 
-// Calculate the sinogram from the phantom image
-// Simulate the projection of rays through the image/phantom
-// Source https://github.com/ferasboulala/radon-tf/blob/master/radon/radon.inl.hpp
-// https://github.com/tknopp/numcpp/blob/master/numcpp/numcpp/tomography/radon.cpp
-kernel void performScan(device float* phantomBuffer [[buffer(0)]], 
-                        device float* sinogramBuffer [[buffer(1)]],
-                        constant Geometry& geom [[buffer(2)]], 
-                        constant float& center_x [[buffer(3)]],
-                        constant float& center_y [[buffer(4)]], 
-                        constant int& num_steps [[buffer(5)]],
-                        device float* debugBuffer [[buffer(6)]], 
-                        uint gid [[thread_position_in_grid]]) {
-  // Each thread finds the detector and angle it is responsible for
-  uint angle_idx = gid / geom.nDetectors;
-  uint detector_idx = gid % geom.nDetectors;
-
-  // Bounds check
-  if (angle_idx >= geom.nAngles || detector_idx >= geom.nDetectors) return;
-
-  // Calculate the ray direction and position
-  float angle = M_PI_F * angle_idx / geom.nAngles;
-  float dir_x = cos(angle), dir_y = sin(angle);
-  float perp_dir_x = -dir_y, perp_dir_y = dir_x;
-  float detector_pos = detector_idx - (geom.nDetectors / 2.0f);
-
-  // Perform ray marching - accumulate samples along the ray
-  float accumulator = 0.0f;
-  float step_size = 1.5f;
-
-  float start_x = center_x + detector_pos * perp_dir_x;
-  float start_y = center_y + detector_pos * perp_dir_y;
-  uint baseIndex = gid * num_steps;
-
-  for (int i = -num_steps / 2; i < num_steps / 2; ++i) {
-    float t = i * step_size;
-    int current_x = static_cast<uint>(start_x + t * dir_x);
-    int current_y = static_cast<uint>(start_y + t * dir_y);
-
-    float sample = 0.0f;
-    if (current_x >= 0 && current_y >= 0 && current_x < static_cast<int>(geom.imageWidth) &&
-        current_y < static_cast<int>(geom.imageHeight)) {
-      uint index = current_y * geom.imageWidth + current_x;
-      sample = phantomBuffer[index];
-      accumulator += sample;
-    }
-
-    // Log the sample into debug buffer
-    debugBuffer[baseIndex + (i + num_steps / 2)] = sample;
-  }
-
-  float finalValue = accumulator * step_size;
-  sinogramBuffer[gid] = finalValue;
-}
-
 // Source https://developer.apple.com/metal/Metal-Shading-Language-Specification.pdf
 kernel void findMaxPerThreadgroupKernel(texture2d<float, access::read> input_texture [[texture(0)]],
                                         device float* map_buffer [[buffer(0)]],
@@ -122,6 +68,56 @@ kernel void findMaxPerThreadgroupKernel(texture2d<float, access::read> input_tex
   }
 }
 
+// Calculate the sinogram from the phantom image
+// Simulate the projection of rays through the image/phantom
+// Source https://github.com/ferasboulala/radon-tf/blob/master/radon/radon.inl.hpp
+// https://github.com/tknopp/numcpp/blob/master/numcpp/numcpp/tomography/radon.cpp
+kernel void performScan(device float* phantomBuffer [[buffer(0)]], 
+                        device float* sinogramBuffer [[buffer(1)]],
+                        constant Geometry& geom [[buffer(2)]], 
+                        constant float& center_x [[buffer(3)]],
+                        constant float& center_y [[buffer(4)]], 
+                        constant int& num_steps [[buffer(5)]],
+                        uint gid [[thread_position_in_grid]]) {
+  // Each thread finds the detector and angle it is responsible for
+  uint angle_idx = gid / geom.nDetectors;
+  uint detector_idx = gid % geom.nDetectors;
+
+  // Bounds check
+  if (angle_idx >= geom.nAngles || detector_idx >= geom.nDetectors) return;
+
+  // Calculate the ray direction and position
+  float angle = M_PI_F * angle_idx / geom.nAngles;
+  float dir_x = cos(angle), dir_y = sin(angle);
+  float perp_dir_x = -dir_y, perp_dir_y = dir_x;
+  float detector_pos = detector_idx - (geom.nDetectors / 2.0f);
+
+  // Perform ray marching - accumulate samples along the ray
+  float accumulator = 0.0f;
+  float step_size = 2.0f;
+
+  float start_x = center_x + detector_pos * perp_dir_x;
+  float start_y = center_y + detector_pos * perp_dir_y;
+
+  for (int i = -num_steps / 2; i < num_steps / 2; ++i) {
+    float t = i * step_size;
+    int current_x = static_cast<int>(start_x + t * dir_x);
+    int current_y = static_cast<int>(start_y + t * dir_y);
+
+    float sample = 0.0f;
+    if (current_x >= 0 && current_y >= 0 && current_x < static_cast<int>(geom.imageWidth) &&
+        current_y < static_cast<int>(geom.imageHeight)) {
+      uint index = current_y * geom.imageWidth + current_x;
+      sample = phantomBuffer[index];
+      accumulator += sample;
+    }
+  }
+
+  float finalValue = accumulator * step_size;
+  sinogramBuffer[gid] = finalValue;
+}
+
+
 // Atomic helper function
 // Source https://stackoverflow.com/questions/36663645/finding-the-minimum-and-maximum-value-within-a-metal-texture
 static void atomic_uint_exchange_if_greater_than(volatile device atomic_uint* current,
@@ -144,7 +140,7 @@ kernel void reduceMaxKernel(const device float* mapBuffer [[buffer(0)]],
 }
 
 kernel void normaliseKernel(texture2d<float, access::read_write> inputTexture [[texture(0)]],
-                            const device atomic_uint* maxValueBuffer [[buffer(1)]],
+                            const device float* maxValueBuffer [[buffer(1)]],
                             uint2 gid [[thread_position_in_grid]]) {
   // Check if the thread is within the bounds of the texture
   if (gid.x >= inputTexture.get_width() || gid.y >= inputTexture.get_height()) {
@@ -155,13 +151,15 @@ kernel void normaliseKernel(texture2d<float, access::read_write> inputTexture [[
   float currentVal = inputTexture.read(gid).r;
 
   // Read the global maximum value
-  float maxVal = as_type<float>(atomic_load_explicit(maxValueBuffer, memory_order_relaxed));
+    float maxVal = maxValueBuffer[0];
 
   // Calculate the normalised value and write it back to the texture
-  if (maxVal > 1e-6) {
-    float normalisedVal = currentVal / maxVal;
-    inputTexture.write(float4(normalisedVal, 0.0, 0.0, 1.0), gid);
-  }
+    if (maxVal > 0.0f) {
+        float normalisedVal = currentVal / maxVal;
+        inputTexture.write(float4(normalisedVal, normalisedVal, normalisedVal, 1.0), gid);
+    } else {
+        inputTexture.write(float4(0.0, 0.0, 0.0, 1.0), gid); // Handle maxVal == 0
+    }
 }
 
 // Pass 1 of Cimmino's algorithm:

@@ -20,10 +20,11 @@ public:
             std::cerr << "Error: Failed to create command queue." << std::endl;
             std::exit(-1);
         }
-
+        const std::string basePath = PROJECT_BASE_PATH;
         // Load precompiled metallib from file
-        NS::String* filePath =
-            NS::String::string("../build/metallibrary.metallib", NS::UTF8StringEncoding);
+        std::string libraryPath = basePath + "/build/metallibrary.metallib";
+        std::cout << "Loading metallib from: " << libraryPath << std::endl;
+        NS::String* filePath = NS::String::string(libraryPath.c_str(), NS::UTF8StringEncoding);
         NS::Error* error;
         library = device->newLibrary(filePath, &error);
         if (error) {

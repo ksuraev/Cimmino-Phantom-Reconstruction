@@ -105,9 +105,11 @@ void dispatchThreads(MTL::ComputeCommandEncoder* encoder, MTL::ComputePipelineSt
  */
 void MTLComputeEngine::generateProjectionMatrix() {
   // Load projection matrix from binary file - generated using Astra Toolbox
+  std::string basePath = PROJECT_BASE_PATH;
   SparseMatrixHeader header;
   SparseMatrix matrix;
-  loadSparseMatrixBinary("../data/projection_256_astra.bin", matrix, header);
+  loadSparseMatrixBinary(basePath + "/data/projection_256_astra.bin", matrix, header);
+
   totalNonZeroElements = header.num_non_zero;
 
   // Check sizes match expected
@@ -122,7 +124,7 @@ void MTLComputeEngine::generateProjectionMatrix() {
     exit(-1);
   }
 
-  // Load into projection matrix CSR buffers
+  // Load into projection matrix CSR metal buffers
   offsetsBuffer = device->newBuffer(matrix.rows.data(), (matrix.rows.size()) * sizeof(int), MTL::ResourceStorageModeShared);
   colsBuffer = device->newBuffer(matrix.cols.data(), matrix.cols.size() * sizeof(int), MTL::ResourceStorageModeShared);
   valsBuffer = device->newBuffer(matrix.vals.data(), matrix.vals.size() * sizeof(float), MTL::ResourceStorageModeShared);
@@ -133,26 +135,19 @@ void MTLComputeEngine::generateProjectionMatrix() {
     exit(-1);
   }
 
-  // Calculate row weights and total weight sum on cpu
-  std::vector<float> rowWeights(totalRays, 0.0f);
-  for (uint i = 0; i < totalRays; ++i) {
-    double rowNormSq = 0.0;
-    for (uint j = matrix.rows[i]; j < matrix.rows[i + 1]; ++j) {
-      rowNormSq += static_cast<double>(matrix.vals[j]) * matrix.vals[j];
-    }
-    // Prevent division by zero
-    if (rowNormSq < 1e-9) {
-      rowNormSq = 1.0;
-    }
-    rowWeights[i] = static_cast<float>(rowNormSq);
-  }
 
   // Calculate total weight sum for Cimmino's algorithm
   totalWeightSum = 0.0f;
-  for (float weight : rowWeights) {
-    totalWeightSum += weight;
+  for (size_t i = 0; i < totalRays; ++i) {
+    double rowNormSq = 0.0;
+    for (size_t j = matrix.rows[i]; j < matrix.rows[i + 1]; ++j) {
+      rowNormSq += static_cast<double>(matrix.vals[j]) * matrix.vals[j];
+    }
+    if (rowNormSq < 1e-6) {
+      rowNormSq = 1.0;
+    }
+    totalWeightSum += static_cast<float>(rowNormSq);
   }
-  std::cout << "Total weight sum calculated: " << totalWeightSum << std::endl;
 }
 
 
@@ -196,9 +191,8 @@ void MTLComputeEngine::performScan(std::vector<float>& phantomData) {
 
   // Compute number of steps
   float stepSize = 2.0f;
-  int numSteps = static_cast<int>(sqrt(float(geom.imageWidth * geom.imageWidth + geom.imageHeight * geom.imageHeight)) / stepSize);
-
-  auto debugBuffer = device->newBuffer(totalRays * numSteps * sizeof(float), MTL::ResourceStorageModeShared);
+  int numSteps = static_cast<int>(ceil(sqrt(float(geom.imageWidth * geom.imageWidth) + geom.imageHeight * geom.imageHeight) / stepSize));
+  // auto debugBuffer = device->newBuffer(totalRays * numSteps * sizeof(float), MTL::ResourceStorageModeShared);
 
   // Set arguments for scan kernel
   encoder->setComputePipelineState(scanPipeline);
@@ -208,7 +202,6 @@ void MTLComputeEngine::performScan(std::vector<float>& phantomData) {
   encoder->setBytes(&imgCenterX, sizeof(float), 3);
   encoder->setBytes(&imgCenterY, sizeof(float), 4);
   encoder->setBytes(&numSteps, sizeof(int), 5);
-  encoder->setBuffer(debugBuffer, 0, 6);
 
   // Perform scan
   dispatchThreads(encoder, scanPipeline, totalRays);
@@ -234,34 +227,12 @@ void MTLComputeEngine::performScan(std::vector<float>& phantomData) {
   cmdBuffer->commit();
   cmdBuffer->waitUntilCompleted();
 
-  // Read in debug buffer if needed
-  float* debugData = (float*)debugBuffer->contents();
-
-  // Save to CSV
-  std::ofstream file("../data/debug.csv");
-
-
-  for (int ray = 0; ray < geom.nAngles * geom.nDetectors; ray++) {
-    for (int step = 0; step < numSteps; step++) {
-      file << debugData[ray * numSteps + step];
-      if (step < numSteps - 1) file << ",";
-    }
-    file << "\n";
-  }
-  file.close();
-
-  // Normalise texture to [0,1] range
-  auto startNorm = std::chrono::high_resolution_clock::now();
-
   findMaxValInTexture(sinogramTexture, maxValSinogramBuffer);
   normaliseTexture(sinogramTexture, maxValSinogramBuffer);
 
-  auto endNorm = std::chrono::high_resolution_clock::now();
-  auto normMs = std::chrono::duration<double, std::milli>(endNorm - startNorm);
-  std::cout << "Sinogram normalisation time: " << normMs.count() << " ms" << std::endl;
-
   // If needed, save sinogram to file
-  saveTextureToFile("../data/sinogram_256.bin", sinogramTexture);
+  // std::string basePath = PROJECT_BASE_PATH;
+  // saveTextureToFile(basePath + "/data/sinogram_256.bin", sinogramTexture);
 }
 
 /**
@@ -391,7 +362,7 @@ void MTLComputeEngine::normaliseTexture(MTL::Texture* texture,
  * @return The duration taken for the reconstruction process.
  */
 std::chrono::duration<double, std::milli>
-MTLComputeEngine::reconstructImage(int numIterations) {
+MTLComputeEngine::reconstructImage(int numIterations, double& finalUpdateNorm) {
 
   // Initialise reconstruction and update functions
   auto cimminoFn = createKernelFn("cimminosReconstruction");
@@ -426,15 +397,13 @@ MTLComputeEngine::reconstructImage(int numIterations) {
   std::cout << "Starting reconstruction for " << numIterations << " iterations..." << std::endl;
 
   auto startTime = std::chrono::high_resolution_clock::now();
-  cmdBuffer = commandQueue->commandBuffer();
 
 
   for (int i = 0; i < numIterations; ++i) {
     cmdBuffer = commandQueue->commandBuffer();
     // Clear the update buffer before each iteration
     // MTL::BlitCommandEncoder* blitEncoder = cmdBuffer->blitCommandEncoder();
-    // blitEncoder->fillBuffer(updateBuffer,
-    //   NS::Range(0, imageSize * sizeof(float)), 0);
+    // blitEncoder->fillBuffer(updateBuffer, NS::Range(0, imageSize * sizeof(float)), 0);
     // blitEncoder->endEncoding();
     memset(updateBuffer->contents(), 0, updateBuffer->length());
 
@@ -451,11 +420,9 @@ MTLComputeEngine::reconstructImage(int numIterations) {
     encoder->setBuffer(updateBuffer, 0, 7);
     dispatchThreads(encoder, cimminoPipeline, totalRays);
     encoder->endEncoding();
-    cmdBuffer->commit();
 
 
     // Dispatch the apply update kernel to get the new image estimate
-    cmdBuffer = commandQueue->commandBuffer();
     encoder = cmdBuffer->computeCommandEncoder();
     encoder->setComputePipelineState(applyUpdatePipeline);
     encoder->setBuffer(reconstructedBuffer, 0, 0);
@@ -465,6 +432,7 @@ MTLComputeEngine::reconstructImage(int numIterations) {
     encoder->endEncoding();
     cmdBuffer->commit();
 
+
 #ifdef DEBUG
     // Every 50 iterations compute the update norm - how much the image has changed
     // If the algorithm is working correctly this should be decreasing
@@ -473,12 +441,12 @@ MTLComputeEngine::reconstructImage(int numIterations) {
 
       // Get the reconstructed image an copy to temp vector
       float* imageData = static_cast<float*>(reconstructedBuffer->contents());
-      std::vector<float> tempData(imageData, imageData + imageSize);
+      std::vector<float> tempImageData(imageData, imageData + imageSize);
 
       // Transpose the temp matrix in place for correct orientation and comparison
       for (size_t y = 0; y < height; ++y) {
         for (size_t x = y + 1; x < width; ++x) {
-          std::swap(tempData[y * width + x], tempData[x * height + y]);
+          std::swap(tempImageData[y * width + x], tempImageData[x * height + y]);
         }
       }
 
@@ -487,7 +455,7 @@ MTLComputeEngine::reconstructImage(int numIterations) {
 
       // Compute error between phantom and reconstruction
       for (int i = 0; i < imageSize; ++i) {
-        errorData[i] = (tempData[i] - phantomData[i]) * (tempData[i] - phantomData[i]);
+        errorData[i] = (tempImageData[i] - phantomData[i]) * (tempImageData[i] - phantomData[i]);
       }
 
       // Compute residual error
@@ -495,11 +463,10 @@ MTLComputeEngine::reconstructImage(int numIterations) {
       for (uint i = 0; i < imageSize; ++i) {
         sumOfSquares += errorData[i];
       }
-      double finalUpdateNorm = sqrt(sumOfSquares);
+      finalUpdateNorm = sqrt(sumOfSquares);
 
       // Print the result
-      std::cout << "Iteration " << (i + 1)
-        << ": Update Norm = " << finalUpdateNorm << std::endl;
+      std::cout << "Iteration " << (i + 1) << ": Update Norm = " << finalUpdateNorm << std::endl;
     }
 #endif
   }
@@ -550,7 +517,9 @@ MTLComputeEngine::reconstructImage(int numIterations) {
   std::cout << "Reconstruction complete. Reconstructed image copied to texture." << std::endl;
 
   // If needed, uncomment to save reconstructed texture to file
-  // saveTextureToFile("../data/reconstructed_256.bin", reconstructedTexture);
+  std::string basePath = PROJECT_BASE_PATH;
+  std::string imageFileName = basePath + "/data/reconstructed_" + std::to_string(numIterations) + ".txt";
+  saveTextureToFile(imageFileName, reconstructedTexture);
 
   return totalReconstructTime;
 }

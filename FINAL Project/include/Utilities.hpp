@@ -17,6 +17,7 @@
 #include <cmath>
 #include <vector>
 
+
 /**
  * @brief Structure to hold geometry parameters for CT reconstruction.
  */
@@ -62,7 +63,7 @@ bool loadSparseMatrixBinary(const std::string& filename, SparseMatrix& matrix, S
  * @param geom The geometry structure containing image dimensions.
  * @return The loaded phantom data as a vector of floats.
  */
-std::vector<float> loadPhantom(const char* filename, const Geometry& geom);
+std::vector<float> loadPhantom(const std::string& filename, const Geometry& geom);
 
 /**
  * @brief Load colourmap texture from a text file into a vector.
@@ -117,7 +118,9 @@ void logPerformance(
     const Geometry& geom, const int numIterations,
     const double scanTime,
     const double projTime,
-    const std::chrono::duration<double, std::milli>& reconTime, const std::string filename = "../logs/mtl_performance_log.csv");
+    const std::chrono::duration<double, std::milli>& reconTime,
+    const double finalErrorNorm,
+    const std::string& filename);
 
 /**
 * @brief Times the execution of a method and returns the duration in microseconds.

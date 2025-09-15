@@ -1,4 +1,4 @@
-//  g++-15 -o sequential sequential.cpp Utilities.cpp
+//  g++-15 -o sequential sequential.cpp ../utilities/Utilities.cpp
 #include "../include/Utilities.hpp"
 
 #define IMAGE_WIDTH 256
@@ -83,6 +83,33 @@ void cimminoReconstruct(int maxIterations,
     std::cout << "Reconstruction for " << maxIterations << " iterations complete." << std::endl;
 }
 
+double calculateErrorNorm(std::vector<float>& phantom, std::vector<float>& approximation) {
+    if (phantom.size() != approximation.size()) {
+        std::cerr << "Error: Vectors must be of the same size to calculate error norm." << std::endl;
+        return -1.0f;
+    }
+    // Flip phantom vertically
+    flipImageVertically(phantom, IMAGE_WIDTH, IMAGE_HEIGHT);
+
+    // Transpose approximation
+    for (size_t y = 0; y < IMAGE_HEIGHT; ++y) {
+        for (size_t x = y + 1; x < IMAGE_WIDTH; ++x) {
+            std::swap(approximation[y * IMAGE_WIDTH + x], approximation[x * IMAGE_HEIGHT + y]);
+        }
+    }
+
+    float errorNorm = 0.0f;
+    for (size_t i = 0; i < phantom.size(); ++i) {
+        float diff = phantom[i] - approximation[i];
+        errorNorm += diff * diff;
+    }
+    errorNorm = std::sqrt(errorNorm);
+
+    std::cout << "L2 Norm of error between phantom and reconstruction: " << errorNorm << std::endl;
+
+    return errorNorm;
+}
+
 int main(int argc, const char* argv[]) {
     // Allow program to run from execution script or local folder
     std::string basePath;
@@ -100,7 +127,7 @@ int main(int argc, const char* argv[]) {
     if (argc > 1) {
         numIterations = std::atoi(argv[1]); // Convert the first argument to an integer
     }
-    std::cout << "Number of iterations: " << numIterations << std::endl;
+
     // Set geometry parameters
     auto numDetectors = static_cast<int>(std::ceil(2 * std::sqrt(2) * IMAGE_WIDTH));
 
@@ -125,6 +152,13 @@ int main(int argc, const char* argv[]) {
         return -1;
     }
 
+    // Load phantom from file
+    std::vector<float> phantom = loadPhantom((basePath + "data/phantom_256.txt").c_str(), geom);
+    if (phantom.empty()) {
+        std::cerr << "Failed to load phantom." << std::endl;
+        return -1;
+    }
+
     // Compute row weights and total weight sum
     float totalWeightSum = 0.0f;
     computeRowWeights(projector, totalRays, totalWeightSum);
@@ -140,10 +174,13 @@ int main(int argc, const char* argv[]) {
 
     std::string imageSaveFileName = basePath + "data/image_seq_" + std::to_string(numIterations) + ".txt";
 
+    // Calculate error norm between phantom and reconstruction
+    double errorNorm = calculateErrorNorm(phantom, reconstructedImage);
+
     // Save image to txt file for viewing 
     saveImage(imageSaveFileName, reconstructedImage, geom.imageWidth, geom.imageHeight);
 
     // Log performance
-    logPerformance("Sequential", geom, numIterations, totalReconstructTime, basePath + "logs/performance_log.csv");
+    logPerformance("Sequential", geom, numIterations, totalReconstructTime, errorNorm, basePath + "logs/performance_log.csv");
 }
 

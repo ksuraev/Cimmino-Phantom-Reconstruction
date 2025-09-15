@@ -63,7 +63,8 @@ void MTLRenderEngine::createRenderPipeline() {
   NS::Error* error = nullptr;
 
   // Source for colour values https://github.com/BIDS/colormap/blob/master/colormaps.py
-  auto colourMapData = loadColourMapTexture("../data/magma.txt");
+  std::string basePath = PROJECT_BASE_PATH;
+  auto colourMapData = loadColourMapTexture(basePath + "/data/magma.txt");
 
   long numColors = colourMapData.size() / 4;
 

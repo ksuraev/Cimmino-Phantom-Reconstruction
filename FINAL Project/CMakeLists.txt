@@ -20,6 +20,8 @@ set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS}")
 set(CMAKE_LINKER_FLAGS "${CMAKE_LINKER_FLAGS}")
 
+set(PROJECT_BASE_PATH "${CMAKE_SOURCE_DIR}")
+
 
 # Tell CMake where to find the metal-cpp headers
 include_directories(metal-cpp)
@@ -49,6 +51,7 @@ target_link_libraries(Project
   ${APPLE_FWK_METAL}
 )
 
+target_compile_definitions(Project PRIVATE PROJECT_BASE_PATH="${PROJECT_BASE_PATH}")
 target_compile_definitions(Project PRIVATE $<$<CONFIG:Debug>:DEBUG>)
 target_compile_definitions(Project PRIVATE $<$<CONFIG:Release>:NDEBUG>)
 

@@ -42,7 +42,7 @@ bool loadSparseMatrixBinary(const std::string& filename, SparseMatrix& matrix, S
     return true;
 }
 
-std::vector<float> loadPhantom(const char* filename, const Geometry& geom) {
+std::vector<float> loadPhantom(const std::string& filename, const Geometry& geom) {
     std::ifstream file(filename);
     if (!file.is_open()) {
         std::cerr << "Error: Could not open phantom file " << filename << std::endl;
@@ -158,18 +158,26 @@ void saveTextureToFile(const std::string& filename, MTL::Texture* texture) {
     // Read the texture data into the vector
     texture->getBytes(textureVector.data(), width * sizeof(float), region, 0);
 
-    // Open file for binary writing
-    std::ofstream outFile(filename, std::ios::binary);
+    // Open file for text writing
+    std::ofstream outFile(filename);
     if (!outFile.is_open()) {
         std::cerr << "Error: Could not open file '" << filename << "' for writing." << std::endl;
         return;
     }
 
-    outFile.write(reinterpret_cast<const char*>(textureVector.data()),
-        textureVector.size() * sizeof(float));
+    // Write the texture data to the file in a human-readable format
+    for (long y = 0; y < height; ++y) {
+        for (long x = 0; x < width; ++x) {
+            outFile << textureVector[y * width + x];
+            if (x < width - 1) {
+                outFile << " "; // Separate values with a space
+            }
+        }
+        outFile << "\n"; // New line at the end of each row
+    }
 
     outFile.close();
-    std::cout << "Texture data successfully saved to binary file '" << filename << "'." << std::endl;
+    std::cout << "Texture data successfully saved to text file." << std::endl;
 }
 
 std::vector<float> flipImageVertically(const std::vector<float>& originalData, int width, int height) {
@@ -194,7 +202,9 @@ void logPerformance(
     const Geometry& geom, const int numIterations,
     const double scanTime,
     const double projTime,
-    const std::chrono::duration<double, std::milli>& reconTime, const std::string filename) {
+    const std::chrono::duration<double, std::milli>& reconTime,
+    const double finalErrorNorm,
+    const std::string& filename) {
 
     std::ofstream logFile;
 
@@ -211,7 +221,7 @@ void logPerformance(
     }
 
     if (writeHeader) {
-        logFile << "Timestamp,ExecutionType,NumIterations,ImageWidth,ImageHeight,NumAngles,NumDetectors,ScanTime_ms,ProjectionTime_ms,ReconstructionTime_ms\n";
+        logFile << "Timestamp,ExecutionType,NumIterations,ImageWidth,ImageHeight,NumAngles,NumDetectors,ScanTime_ms,ProjectionTime_ms,ReconstructionTime_ms,FinalErrorNorm\n";
     }
 
     // Get the current system time for the log entry
@@ -224,7 +234,7 @@ void logPerformance(
         << numIterations << "," << geom.imageWidth << ","
         << geom.imageHeight << "," << geom.nAngles << "," << geom.nDetectors
         << "," << scanTime << "," << projTime << ","
-        << reconTime.count() << "\n";
+        << reconTime.count() << "," << finalErrorNorm << "\n";
 
     logFile.close();
     std::cout << "Performance metrics logged to " << filename << std::endl;

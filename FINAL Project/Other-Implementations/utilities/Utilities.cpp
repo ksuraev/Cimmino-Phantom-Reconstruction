@@ -41,10 +41,6 @@ bool loadSparseMatrixBinary(const std::string& binFileName, SparseMatrix& matrix
     matrix.cols.resize(header.num_non_zero);
     matrix.vals.resize(header.num_non_zero);
 
-    std::cout << "Reading " << header.num_rows + 1 << " row indices (" << (totalRays + 1) * sizeof(int) << " bytes)" << std::endl;
-    std::cout << "Reading " << header.num_non_zero << " column indices (" << header.num_non_zero * sizeof(int) << " bytes)" << std::endl;
-    std::cout << "Reading " << header.num_non_zero << " values (" << header.num_non_zero * sizeof(float) << " bytes)" << std::endl;
-
     file.read(reinterpret_cast<char*>(matrix.rows.data()), (header.num_rows + 1) * sizeof(int));
     if (!file) {
         std::cerr << "Error reading row data from " << binFileName << std::endl;
@@ -63,7 +59,7 @@ bool loadSparseMatrixBinary(const std::string& binFileName, SparseMatrix& matrix
         return false;
     }
 
-    std::cout << "Sparse matrix successfully loaded from '" << binFileName << "'." << std::endl;
+    std::cout << "Sparse matrix successfully loaded." << std::endl;
     return true;
 }
 
@@ -101,6 +97,23 @@ bool loadSinogram(const std::string& filename, std::vector<float>& sinogram, uns
     return true;
 }
 
+std::vector<float> flipImageVertically(const std::vector<float>& originalData, int width, int height) {
+    std::vector<float> flippedData(width * height);
+
+    for (int y = 0; y < height; ++y) {
+        // Calculate destination row index
+        int flippedY = height - 1 - y;
+
+        // Pointers to the start of the source and destination rows
+        const float* srcRow = originalData.data() + (y * width);
+        float* destRow = flippedData.data() + (flippedY * width);
+
+        // Copy the entire row at once
+        memcpy(destRow, srcRow, width * sizeof(float));
+    }
+    return flippedData;
+}
+
 /**
  * @brief Log performance metrics to a CSV file.
  * @param executionType The type of execution (e.g., "Sequential", "OpenMP").
@@ -110,7 +123,9 @@ bool loadSinogram(const std::string& filename, std::vector<float>& sinogram, uns
  */
 void logPerformance(const std::string& executionType,
     const Geometry& geom, const int numIterations,
-    const double reconstructionTime, const std::string& filename) {
+    const double reconstructionTime,
+    const double finalErrorNorm,
+    const std::string& filename) {
     std::ofstream logFile;
 
     // Check if the file already exists 
@@ -127,7 +142,7 @@ void logPerformance(const std::string& executionType,
 
     if (writeHeader) {
         logFile << "Timestamp,ExecutionType,NumIterations,ImageWidth,ImageHeight,NumAngles,"
-            "NumDetectors,ReconstructionTime_ms\n";
+            "NumDetectors,ReconstructionTime_ms,FinalErrorNorm\n";
     }
 
     // Get the current system time for the log entry
@@ -139,10 +154,10 @@ void logPerformance(const std::string& executionType,
     logFile << std::put_time(local_tm, "%Y-%m-%d %H:%M:%S") << "," << executionType << ","
         << numIterations << "," << geom.imageWidth << ","
         << geom.imageHeight << "," << geom.nAngles << "," << geom.nDetectors
-        << "," << reconstructionTime << "\n";
+        << "," << reconstructionTime << "," << finalErrorNorm << "\n";
 
     logFile.close();
-    std::cout << "Performance metrics logged to " << filename << std::endl;
+    std::cout << "Performance metrics logged." << std::endl;
 }
 
 void saveImage(const std::string& filename,
@@ -172,5 +187,5 @@ void saveImage(const std::string& filename,
     }
 
     outFile.close();
-    std::cout << "Image data successfully saved to '" << filename << "'." << std::endl;
+    std::cout << "Image data successfully saved." << std::endl;
 }

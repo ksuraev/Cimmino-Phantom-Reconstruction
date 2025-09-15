@@ -47,8 +47,9 @@ def display_multiple_images(file_paths):
 if __name__ == "__main__":
     # List of .txt file paths
     file_paths = [
-        "image_seq_500.txt",
-        "image_omp_500.txt",
+        "image_seq_100.txt",
+        "image_omp_100.txt",
+        "phantom_256.txt"
     ]
 
     # Display all images in one window
