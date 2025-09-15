@@ -143,9 +143,6 @@ void MTLComputeEngine::generateProjectionMatrix() {
     for (size_t j = matrix.rows[i]; j < matrix.rows[i + 1]; ++j) {
       rowNormSq += static_cast<double>(matrix.vals[j]) * matrix.vals[j];
     }
-    if (rowNormSq < 1e-6) {
-      rowNormSq = 1.0;
-    }
     totalWeightSum += static_cast<float>(rowNormSq);
   }
 }
@@ -230,9 +227,13 @@ void MTLComputeEngine::performScan(std::vector<float>& phantomData) {
   findMaxValInTexture(sinogramTexture, maxValSinogramBuffer);
   normaliseTexture(sinogramTexture, maxValSinogramBuffer);
 
-  // If needed, save sinogram to file
+  // Save non-normalised sinogram for other programs
   // std::string basePath = PROJECT_BASE_PATH;
-  // saveTextureToFile(basePath + "/data/sinogram_256.bin", sinogramTexture);
+  // saveSinogram(basePath + "/data/sinogram_256.bin", sinogramBuffer, totalRays);
+
+  // If needed, save normalised sinogram to .txt file
+  // std::string basePath = PROJECT_BASE_PATH;
+  // saveTextureToFile(basePath + "/data/sinogram_256.txt", sinogramTexture);
 }
 
 /**
@@ -432,45 +433,9 @@ MTLComputeEngine::reconstructImage(int numIterations, double& finalUpdateNorm) {
     encoder->endEncoding();
     cmdBuffer->commit();
 
-
-#ifdef DEBUG
-    // Every 50 iterations compute the update norm - how much the image has changed
-    // If the algorithm is working correctly this should be decreasing
-    if ((i + 1) % 50 == 0) {
-      std::vector<float> errorData(imageSize, 0.0f);
-
-      // Get the reconstructed image an copy to temp vector
-      float* imageData = static_cast<float*>(reconstructedBuffer->contents());
-      std::vector<float> tempImageData(imageData, imageData + imageSize);
-
-      // Transpose the temp matrix in place for correct orientation and comparison
-      for (size_t y = 0; y < height; ++y) {
-        for (size_t x = y + 1; x < width; ++x) {
-          std::swap(tempImageData[y * width + x], tempImageData[x * height + y]);
-        }
-      }
-
-      // Get phantom data for comparison
-      float* phantomData = static_cast<float*>(phantomBuffer->contents());
-
-      // Compute error between phantom and reconstruction
-      for (int i = 0; i < imageSize; ++i) {
-        errorData[i] = (tempImageData[i] - phantomData[i]) * (tempImageData[i] - phantomData[i]);
-      }
-
-      // Compute residual error
-      double sumOfSquares = 0.0;
-      for (uint i = 0; i < imageSize; ++i) {
-        sumOfSquares += errorData[i];
-      }
-      finalUpdateNorm = sqrt(sumOfSquares);
-
-      // Print the result
-      std::cout << "Iteration " << (i + 1) << ": Update Norm = " << finalUpdateNorm << std::endl;
-    }
-#endif
+    cmdBuffer->waitUntilCompleted();
   }
-  cmdBuffer->waitUntilCompleted();
+
 
   // We time reconstruction loop only for direct comparison to sequential program
   auto endTime = std::chrono::high_resolution_clock::now();
@@ -479,17 +444,29 @@ MTLComputeEngine::reconstructImage(int numIterations, double& finalUpdateNorm) {
   std::cout << "Reconstruction time for " << numIterations << " iterations " << totalReconstructTime.count() << " ms" << std::endl;
 
   // Transpose the reconstructed image for correct orientation
-  float* bufferData = static_cast<float*>(reconstructedBuffer->contents());
+  float* imageData = static_cast<float*>(reconstructedBuffer->contents());
 
   // Transpose the matrix in place
   for (size_t y = 0; y < height; ++y) {
     for (size_t x = y + 1; x < width; ++x) {
-      std::swap(bufferData[y * width + x], bufferData[x * height + y]);
+      std::swap(imageData[y * width + x], imageData[x * width + y]);
     }
   }
 
   // Notify device that the buffer has been modified
   reconstructedBuffer->didModifyRange(NS::Range(0, imageSize * sizeof(float)));
+
+  // Compute error norm 
+  float* phantomData = static_cast<float*>(phantomBuffer->contents());
+  const float* P = phantomData;  // already flipped when loaded
+  double sse = 0.0L;
+  for (size_t k = 0; k < imageSize; ++k) {
+    double d = (double)imageData[k] - (double)P[k];
+    sse += d * d;
+  }
+  finalUpdateNorm = std::sqrt((double)sse);
+  std::cout << "Final Error Norm = " << finalUpdateNorm << std::endl;
+
 
   // Create texture for reconstructed image
   cmdBuffer = commandQueue->commandBuffer();

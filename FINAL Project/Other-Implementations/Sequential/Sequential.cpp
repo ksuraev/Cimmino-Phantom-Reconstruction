@@ -88,26 +88,32 @@ double calculateErrorNorm(std::vector<float>& phantom, std::vector<float>& appro
         std::cerr << "Error: Vectors must be of the same size to calculate error norm." << std::endl;
         return -1.0f;
     }
-    // Flip phantom vertically
-    flipImageVertically(phantom, IMAGE_WIDTH, IMAGE_HEIGHT);
+    std::vector<float> A = approximation;
+    std::vector<float> P = phantom;
+
+    // Flip phantom vertically to match orientation
+    for (size_t y = 0; y < IMAGE_HEIGHT / 2; ++y) {
+        for (size_t x = 0; x < IMAGE_WIDTH; ++x) {
+            std::swap(P[y * IMAGE_WIDTH + x], P[(IMAGE_HEIGHT - 1 - y) * IMAGE_WIDTH + x]);
+        }
+    }
 
     // Transpose approximation
     for (size_t y = 0; y < IMAGE_HEIGHT; ++y) {
         for (size_t x = y + 1; x < IMAGE_WIDTH; ++x) {
-            std::swap(approximation[y * IMAGE_WIDTH + x], approximation[x * IMAGE_HEIGHT + y]);
+            std::swap(A[y * IMAGE_WIDTH + x], A[x * IMAGE_WIDTH + y]);
         }
     }
 
-    float errorNorm = 0.0f;
-    for (size_t i = 0; i < phantom.size(); ++i) {
-        float diff = phantom[i] - approximation[i];
-        errorNorm += diff * diff;
+    double sse = 0.0;
+    for (size_t i = 0; i < IMAGE_WIDTH * IMAGE_HEIGHT; ++i) {
+        double d = (double)A[i] - (double)P[i];
+        sse += d * d;
     }
-    errorNorm = std::sqrt(errorNorm);
-
-    std::cout << "L2 Norm of error between phantom and reconstruction: " << errorNorm << std::endl;
-
-    return errorNorm;
+    // Print sse
+    double norm = std::sqrt(sse);
+    std::cout << "Sum of Squared Errors (SSE): " << norm << std::endl;
+    return norm;
 }
 
 int main(int argc, const char* argv[]) {
@@ -140,7 +146,7 @@ int main(int argc, const char* argv[]) {
     SparseMatrix projector;
 
     // Load projection matrix from file
-    if (!loadSparseMatrixBinary(basePath + "data/projection_256.bin", projector, header, totalRays)) {
+    if (!loadSparseMatrixBinary(basePath + "data/projection_256_astra.bin", projector, header, totalRays)) {
         std::cerr << "Failed to load sparse projection matrix." << std::endl;
         return -1;
     }

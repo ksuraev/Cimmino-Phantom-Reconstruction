@@ -181,19 +181,24 @@ void saveTextureToFile(const std::string& filename, MTL::Texture* texture) {
 }
 
 std::vector<float> flipImageVertically(const std::vector<float>& originalData, int width, int height) {
-    std::vector<float> flippedData(width * height);
-
-    for (int y = 0; y < height; ++y) {
-        // Calculate destination row index
-        int flippedY = height - 1 - y;
-
-        // Pointers to the start of the source and destination rows
-        const float* srcRow = originalData.data() + (y * width);
-        float* destRow = flippedData.data() + (flippedY * width);
-
-        // Copy the entire row at once
-        memcpy(destRow, srcRow, width * sizeof(float));
+    std::vector<float> flippedData(originalData);
+    for (size_t y = 0; y < height / 2; ++y) {
+        for (size_t x = 0; x < width; ++x) {
+            std::swap(flippedData[y * width + x], flippedData[(height - 1 - y) * width + x]);
+        }
     }
+
+    // for (int y = 0; y < height; ++y) {
+    //     // Calculate destination row index
+    //     int flippedY = height - 1 - y;
+
+    //     // Pointers to the start of the source and destination rows
+    //     const float* srcRow = originalData.data() + (y * width);
+    //     float* destRow = flippedData.data() + (flippedY * width);
+
+    //     // Copy the entire row at once
+    //     memcpy(destRow, srcRow, width * sizeof(float));
+    // }
     return flippedData;
 }
 
@@ -237,5 +242,5 @@ void logPerformance(
         << reconTime.count() << "," << finalErrorNorm << "\n";
 
     logFile.close();
-    std::cout << "Performance metrics logged to " << filename << std::endl;
+    std::cout << "Performance metrics logged." << std::endl;
 }

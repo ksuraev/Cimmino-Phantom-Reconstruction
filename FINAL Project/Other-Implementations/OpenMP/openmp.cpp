@@ -1,7 +1,8 @@
-// g++-15 -fopenmp -o openmp openmp.cpp Utilities.cpp
+// g++-15 -fopenmp -o openmp openmp.cpp ../utilities/Utilities.cpp
 
 #include "../include/Utilities.hpp"
 #include <omp.h>
+#include <algorithm> 
 
 
 #define IMAGE_WIDTH 256
@@ -13,7 +14,6 @@
 /**
  * @brief Compute the squared L2 norm of each row in the sparse matrix and the total weight sum.
  * @param projector Sparse projection matrix in CSR format.
- * @param rowWeights Vector to store the squared L2 norm of each row.
  * @param totalRays Total number of rays (rows in the sinogram).
  * @param totalWeightSum Variable to store the total sum of row weights.
  */
@@ -24,13 +24,21 @@ void computeRowWeights(const SparseMatrix& projector, size_t totalRays, float& t
         double rowNormSq = 0.0f;
         for (int i = projector.rows[r]; i < projector.rows[r + 1]; ++i)
             rowNormSq += static_cast<double>(projector.vals[i] * projector.vals[i]);
-        // if (rowNormSq < 1e-9) rowNormSq = 1.0;
         totalWeightSum += static_cast<float>(rowNormSq);;
     }
-    std::cout << "Total weight sum: " << totalWeightSum << std::endl;
 }
 
-void cimminoReconstruct(int maxIterations,
+/**
+ * @brief Reconstruct image using Cimmino's algorithm with OpenMP parallelisation.
+ * @param numIterations The number of iterations to perform.
+ * @param projector The sparse projection matrix.
+ * @param header The header information for the sparse matrix.
+ * @param x The reconstructed image vector (output).
+ * @param totalRays The total number of rays (rows in the sinogram).
+ * @param sinogram The input sinogram data.
+ * @param totalWeightSum The total sum of row weights.
+ */
+void cimminoReconstruct(int numIterations,
     SparseMatrix& projector,
     SparseMatrixHeader& header,
     std::vector<float>& x,
@@ -41,8 +49,12 @@ void cimminoReconstruct(int maxIterations,
     size_t imageSize = IMAGE_WIDTH * IMAGE_HEIGHT;
 
     std::vector<float> residuals(totalRays, 0.0f);
+    std::vector<float> localX(imageSize, 0.0f);
 
-    for (int iter = 0; iter < maxIterations; ++iter) {
+    for (int iter = 0; iter < numIterations; ++iter) {
+        // Clear residuals
+        std::fill(residuals.begin(), residuals.end(), 0.0f);
+
         // Pass 1: Calculate all residuals
 #pragma omp parallel for num_threads(NUM_THREADS)
         for (size_t r = 0; r < totalRays; ++r) {
@@ -58,53 +70,70 @@ void cimminoReconstruct(int maxIterations,
             residuals[r] = sinogram[r] - dotProduct;
         }
 
-        // Pass 2: Update x
+        // Accumulate per-ray contributions into localX (GPU-like atomics)
+        std::fill(localX.begin(), localX.end(), 0.0f);
+
 #pragma omp parallel for num_threads(NUM_THREADS) schedule(static)
         for (size_t r = 0; r < totalRays; ++r) {
-            float residual = residuals[r];
-            float scalar = (2.0f / totalWeightSum) * residual;
             int rowStart = projector.rows[r];
             int rowEnd = projector.rows[r + 1];
             if (rowStart == rowEnd) continue; // Skip empty rows
+
+            float residual = residuals[r];
+            float scalar = (2.0f / totalWeightSum) * residual;
+
             for (int i = rowStart; i < rowEnd; ++i) {
                 int   pixelIndex = projector.cols[i];
-                float weight = projector.vals[i];
-                float contribution = scalar * weight;
+                float contribution = scalar * projector.vals[i];
 #pragma omp atomic
-                x[pixelIndex] += contribution;
+                localX[pixelIndex] += contribution;
             }
         }
-    }
 
-    std::cout << "Reconstruction for " << maxIterations << " iterations complete." << std::endl;
+        // Apply the update once
+#pragma omp parallel for num_threads(NUM_THREADS) schedule(static)
+        for (size_t i = 0; i < imageSize; ++i) {
+            x[i] += localX[i];
+        }
+
+    }
+    std::cout << "Reconstruction for " << numIterations << " iterations complete." << std::endl;
 }
 
-double calculateErrorNorm(std::vector<float>& phantom, std::vector<float>& approximation) {
+double calculateErrorNorm(const std::vector<float> phantom, const std::vector<float>approximation) {
     if (phantom.size() != approximation.size()) {
         std::cerr << "Error: Vectors must be of the same size to calculate error norm." << std::endl;
         return -1.0f;
     }
-    // // Flip the phantom vertically
-    // std::vector<float> flippedPhantom = flipImageVertically(phantom, IMAGE_WIDTH, IMAGE_HEIGHT);
 
-    // // Transpose the temp matrix in place for correct orientation and comparison
-    // for (size_t y = 0; y < IMAGE_HEIGHT; ++y) {
-    //     for (size_t x = y + 1; x < IMAGE_WIDTH; ++x) {
-    //         std::swap(approximation[y * IMAGE_WIDTH + x], approximation[x * IMAGE_HEIGHT + y]);
-    //     }
-    // }
+    // Work on copies so we don't mutate inputs
+    std::vector<float> A = approximation;
+    std::vector<float> P = phantom;
 
-    // Compute residual error directly
-    int imageSize = IMAGE_WIDTH * IMAGE_HEIGHT;
-    double sumOfSquares = 0.0;
-    for (int i = 0; i < imageSize; ++i) {
-        float diff = approximation[i] - phantom[i];
-        sumOfSquares += diff * diff;
+    // Transpose A
+    for (size_t y = 0; y < IMAGE_HEIGHT; ++y) {
+        for (size_t x = y + 1; x < IMAGE_WIDTH; ++x) {
+            std::swap(A[y * IMAGE_WIDTH + x], A[x * IMAGE_WIDTH + y]);  // IMAGE_WIDTH, not IMAGE_HEIGHT
+        }
     }
-    double finalUpdateNorm = sqrt(sumOfSquares);
 
-    std::cout << "Final update norm (L2): " << finalUpdateNorm << std::endl;
-    return finalUpdateNorm;
+    // Flip P vertically to align with A
+    for (size_t y = 0; y < IMAGE_HEIGHT / 2; ++y) {
+        for (size_t x = 0; x < IMAGE_WIDTH; ++x) {
+            std::swap(P[y * IMAGE_WIDTH + x], P[(IMAGE_HEIGHT - 1 - y) * IMAGE_WIDTH + x]);
+        }
+    }
+
+    double sse = 0.0;
+#pragma omp parallel for reduction(+:sse) schedule(static) num_threads(NUM_THREADS)
+    for (size_t i = 0; i < IMAGE_WIDTH * IMAGE_HEIGHT; ++i) {
+        double d = (double)A[i] - (double)P[i];
+        sse += d * d;
+    }
+    // Print sse
+    double norm = std::sqrt(sse);
+    std::cout << "Sum of Squared Errors (SSE): " << norm << std::endl;
+    return norm;
 }
 
 int main(int argc, const char* argv[]) {
@@ -171,7 +200,10 @@ int main(int argc, const char* argv[]) {
 
     saveImage(imageSaveFileName, reconstructed, geom.imageWidth, geom.imageHeight);
 
+    // Calculate error norm between phantom and reconstruction
     double errorNorm = calculateErrorNorm(phantom, reconstructed);
+
+    std::cout << "Error norm between phantom and reconstruction: " << errorNorm << std::endl;
 
     logPerformance("openmp", geom, numIterations, totalReconstructTime, errorNorm, basePath + "logs/performance_log.csv");
 }
