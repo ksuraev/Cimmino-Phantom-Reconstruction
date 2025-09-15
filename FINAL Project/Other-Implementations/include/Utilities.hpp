@@ -18,6 +18,8 @@
 #include <chrono>
 #include <iomanip>
 #include <cmath>
+#include <stdexcept>
+#include <cstdlib>
 
 // --- Shared Data Structures ---
 struct Geometry {
@@ -39,6 +41,7 @@ struct SparseMatrix {
     std::vector<float> vals;
 };
 
+std::string getBasePath();
 
 bool loadSparseMatrixBinary(const std::string& binFileName, SparseMatrix& matrix, SparseMatrixHeader header, size_t totalRays);
 
@@ -53,7 +56,7 @@ bool loadSinogram(const std::string& filename, std::vector<float>& sinogram, uns
 
 void logPerformance(const std::string& executionType,
     const Geometry& geom, const int numIterations,
-    const double reconstructionTime, const std::string filename = "../logs/performance_log.csv");
+    const double reconstructionTime, const std::string& filename);
 
 void saveImage(const std::string& filename,
     const std::vector<float>& imageData, unsigned int width,

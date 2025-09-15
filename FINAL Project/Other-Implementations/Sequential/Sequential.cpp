@@ -1,7 +1,6 @@
 //  g++-15 -o sequential sequential.cpp Utilities.cpp
 #include "../include/Utilities.hpp"
 
-
 #define IMAGE_WIDTH 256
 #define IMAGE_HEIGHT 256
 #define NUM_ANGLES 90
@@ -82,23 +81,26 @@ void cimminoReconstruct(int maxIterations,
         }
     }
     std::cout << "Reconstruction for " << maxIterations << " iterations complete." << std::endl;
-    // return reconstructedVector;
-}
-
-/**
- * @brief Times the execution of a method and returns the duration in microseconds.
- * @param methodToTime The method to be timed.
- * @return The duration of the method execution in microseconds.
- * Inspired by Maksym's code from lecture 14/07/2025
- */
-static double timeMethod_ms(const std::function<void()>& methodToTime) {
-    auto start = std::chrono::high_resolution_clock::now();
-    methodToTime();
-    auto end = std::chrono::high_resolution_clock::now();
-    return std::chrono::duration_cast<std::chrono::microseconds>(end - start).count() / 1000.0;
 }
 
 int main(int argc, const char* argv[]) {
+    // Allow program to run from execution script or local folder
+    std::string basePath;
+    try {
+        basePath = getBasePath();
+    }
+    catch (const std::runtime_error& e) {
+        std::cerr << "Error: " << e.what() << std::endl;
+        return 1;
+    }
+
+    // Default value
+    int numIterations = 100;
+
+    if (argc > 1) {
+        numIterations = std::atoi(argv[1]); // Convert the first argument to an integer
+    }
+    std::cout << "Number of iterations: " << numIterations << std::endl;
     // Set geometry parameters
     auto numDetectors = static_cast<int>(std::ceil(2 * std::sqrt(2) * IMAGE_WIDTH));
 
@@ -111,14 +113,14 @@ int main(int argc, const char* argv[]) {
     SparseMatrix projector;
 
     // Load projection matrix from file
-    if (!loadSparseMatrixBinary("../dataprojection_256.bin", projector, header, totalRays)) {
+    if (!loadSparseMatrixBinary(basePath + "data/projection_256.bin", projector, header, totalRays)) {
         std::cerr << "Failed to load sparse projection matrix." << std::endl;
         return -1;
     }
 
     // Load sinogram from file
     std::vector<float> sinogram(totalRays, 0.0f);
-    if (!loadSinogram("../data/sinogram_256.bin", sinogram, totalRays)) {
+    if (!loadSinogram(basePath + "data/sinogram_256.bin", sinogram, totalRays)) {
         std::cerr << "Failed to load sinogram." << std::endl;
         return -1;
     }
@@ -129,7 +131,6 @@ int main(int argc, const char* argv[]) {
 
     // Reconstruct image and time execution
     std::vector<float> reconstructedImage(IMAGE_WIDTH * IMAGE_HEIGHT, 0.0f);
-    int numIterations = 10;
 
     auto totalReconstructTime = timeMethod_ms([&]() {
         cimminoReconstruct(numIterations, projector, header, reconstructedImage, totalRays, sinogram, totalWeightSum);
@@ -137,10 +138,12 @@ int main(int argc, const char* argv[]) {
 
     std::cout << "Total reconstruction time (ms): " << totalReconstructTime << std::endl;
 
+    std::string imageSaveFileName = basePath + "data/image_seq_" + std::to_string(numIterations) + ".txt";
+
     // Save image to txt file for viewing 
-    saveImage("image_seq.txt", reconstructedImage, geom.imageWidth, geom.imageHeight);
+    saveImage(imageSaveFileName, reconstructedImage, geom.imageWidth, geom.imageHeight);
 
     // Log performance
-    logPerformance("Sequential", geom, numIterations, totalReconstructTime);
+    logPerformance("Sequential", geom, numIterations, totalReconstructTime, basePath + "logs/performance_log.csv");
 }
 

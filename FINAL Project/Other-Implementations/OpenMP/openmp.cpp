@@ -1,7 +1,8 @@
 // g++-15 -fopenmp -o openmp openmp.cpp Utilities.cpp
 
 #include "../include/Utilities.hpp"
-#include "omp.h"
+#include <omp.h>
+
 
 #define IMAGE_WIDTH 256
 #define IMAGE_HEIGHT 256
@@ -101,10 +102,25 @@ void cimminoReconstruct(int maxIterations,
     std::cout << "Reconstruction for " << maxIterations << " iterations complete." << std::endl;
 }
 
-
-
-
 int main(int argc, const char* argv[]) {
+    // Allow program to run from execution script or local folder
+    std::string basePath;
+    try {
+        basePath = getBasePath();
+    }
+    catch (const std::runtime_error& e) {
+        std::cerr << "Error: " << e.what() << std::endl;
+        return 1;
+    }
+
+    // Default value
+    int numIterations = 100;
+
+    if (argc > 1) {
+        numIterations = std::atoi(argv[1]); // Convert the first argument to an integer
+    }
+    std::cout << "Number of iterations: " << numIterations << std::endl;
+
     // Set geometry parameters
     auto numDetectors = static_cast<int>(std::ceil(2 * std::sqrt(2) * IMAGE_WIDTH));
 
@@ -117,7 +133,7 @@ int main(int argc, const char* argv[]) {
     SparseMatrix projector;
 
     // Load projection matrix from file
-    if (!loadSparseMatrixBinary("../data/projection_256.bin", projector, header, totalRays)) {
+    if (!loadSparseMatrixBinary(basePath + "data/projection_256.bin", projector, header, totalRays)) {
         std::cerr << "Failed to load sparse projection matrix." << std::endl;
         return -1;
     }
@@ -125,7 +141,7 @@ int main(int argc, const char* argv[]) {
     // Load sinogram from file
     std::vector<float> sinogram(totalRays, 0.0f);
 
-    if (!loadSinogram("../data/sinogram_256.bin", sinogram, totalRays)) {
+    if (!loadSinogram(basePath + "data/sinogram_256.bin", sinogram, totalRays)) {
         std::cerr << "Failed to load sinogram." << std::endl;
         return -1;
     }
@@ -134,7 +150,6 @@ int main(int argc, const char* argv[]) {
     computeRowWeights(projector, totalRays, totalWeightSum);
 
     // Reconstruct image and time execution
-    int numIterations = 1000;
     std::vector<float> reconstructed(IMAGE_WIDTH * IMAGE_HEIGHT, 0.0f);
     double totalReconstructTime = timeMethod_ms([&]() {
         cimminoReconstruct(numIterations, projector, header, reconstructed, totalRays, sinogram, totalWeightSum);
@@ -142,8 +157,10 @@ int main(int argc, const char* argv[]) {
 
     std::cout << "Reconstruction time for " << numIterations << " iterations: " << totalReconstructTime << " ms." << std::endl;
 
-    saveImage("image_omp.txt", reconstructed, geom.imageWidth, geom.imageHeight);
+    std::string imageSaveFileName = basePath + "data/image_omp_" + std::to_string(numIterations) + ".txt";
 
-    logPerformance("openmp", geom, numIterations, totalReconstructTime);
+    saveImage(imageSaveFileName, reconstructed, geom.imageWidth, geom.imageHeight);
+
+    logPerformance("openmp", geom, numIterations, totalReconstructTime, basePath + "logs/performance_log.csv");
 }
 

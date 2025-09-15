@@ -6,6 +6,22 @@
 //
 #include "../include/Utilities.hpp"
 
+std::string getBasePath() {
+    const char* envBasePath = std::getenv("PROJECT_BASE_PATH");
+    if (envBasePath == nullptr) {
+        throw std::runtime_error("Environment variable PROJECT_BASE_PATH is not set.");
+    }
+
+    std::string basePath(envBasePath);
+
+    // Ensure basePath ends with a '/'
+    if (!basePath.empty() && basePath.back() != '/') {
+        basePath += '/';
+    }
+
+    return basePath;
+}
+
 bool loadSparseMatrixBinary(const std::string& binFileName, SparseMatrix& matrix, SparseMatrixHeader header, size_t totalRays) {
     std::ifstream file(binFileName, std::ios::binary);
     if (!file) {
@@ -94,7 +110,7 @@ bool loadSinogram(const std::string& filename, std::vector<float>& sinogram, uns
  */
 void logPerformance(const std::string& executionType,
     const Geometry& geom, const int numIterations,
-    const double reconstructionTime, const std::string filename) {
+    const double reconstructionTime, const std::string& filename) {
     std::ofstream logFile;
 
     // Check if the file already exists 
@@ -158,4 +174,3 @@ void saveImage(const std::string& filename,
     outFile.close();
     std::cout << "Image data successfully saved to '" << filename << "'." << std::endl;
 }
-
