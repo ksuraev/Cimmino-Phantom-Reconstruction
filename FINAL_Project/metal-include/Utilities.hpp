@@ -1,9 +1,8 @@
-//
-//  Utilities.hpp
-//  MetalCalculations
-//
-//  Created by Kate Suraev on 4/9/2025.
-//
+/**
+ * @file Utilities.hpp
+ * @brief Utility header file containing helper functions and structures for CT reconstruction using Metal.
+ * This file contains functions for loading and saving data, as well as logging performance metrics.
+ */
 #ifndef UTILS_HPP
 #define UTILS_HPP
 
@@ -18,14 +17,14 @@
 #include <vector>
 
 
-/**
- * @brief Structure to hold geometry parameters for CT reconstruction.
- */
+ /**
+  * @brief Structure to hold geometry parameters for CT reconstruction.
+  */
 struct Geometry {
-    int imageWidth;
-    int imageHeight;
-    int nAngles;
-    int nDetectors;
+    uint imageWidth;
+    uint imageHeight;
+    uint nAngles;
+    uint nDetectors;
 };
 
 /**

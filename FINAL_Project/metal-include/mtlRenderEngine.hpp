@@ -49,6 +49,16 @@ public:
     void render();
 
     /**
+     * @brief GLFW key callback to handle user input for switching textures.
+     * @param window The GLFW window receiving the event.
+     * @param key The keyboard key that was pressed or released.
+     * @param scancode The system-specific scancode of the key.
+     * @param action GLFW_PRESS, GLFW_RELEASE or GLFW_REPEAT.
+     * @param mods Bit field describing which modifier keys were held down.
+     */
+    static void keyCallback(GLFWwindow* window, int key, int scancode, int action, int mods);
+
+    /**
      * @brief Set the reconstructed texture from the compute engine.
      * @param texture The Metal texture containing the reconstructed image.
      */
@@ -82,6 +92,9 @@ private:
     MTL::Texture* reconstructedTexture;
     MTL::Texture* sinogramTexture;
     MTL::Texture* originalPhantomTexture;
+
+    // Current texture being displayed (0: sinogram, 1: reconstructed, 2: original phantom)
+    int currentTextureIndex = 0;
 
     /**
      * @brief Initialise a GLFW window with a CAMetalLayer for Metal rendering.
