@@ -1,1 +1,0 @@
-Add instructions for script and individual programs
