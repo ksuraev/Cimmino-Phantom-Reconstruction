@@ -43,15 +43,15 @@ MTL::ComputePipelineState *MTLComputeEngine::createComputePipeline(MTL::Function
     return pipeline;
 }
 
-MTL::Function *MTLComputeEngine::createKernelFn(const char *functionName) {
-    MTL::Function *fn = defaultLibrary->newFunction(NS::String::string(functionName, NS::UTF8StringEncoding));
-    if (!fn) {
-        std::cerr << "Failed to find kernel " << functionName << " in the library." << std::endl;
-        std::exit(-1);
-    }
+// MTL::Function *MTLComputeEngine::createKernelFn(const char *functionName) {
+//     MTL::Function *fn = defaultLibrary->newFunction(NS::String::string(functionName, NS::UTF8StringEncoding));
+//     if (!fn) {
+//         std::cerr << "Failed to find kernel " << functionName << " in the library." << std::endl;
+//         std::exit(-1);
+//     }
 
-    return fn;
-}
+//     return fn;
+// }
 
 void MTLComputeEngine::dispatchThreads(MTL::ComputeCommandEncoder *encoder, MTL::ComputePipelineState *pipeline,
                                        size_t totalElements) {
@@ -136,7 +136,7 @@ void MTLComputeEngine::performScan(std::vector<float> &phantomData) {
     }
 
     // Load perform scan kernel function
-    MTL::Function *performScanFn = createKernelFn("performScan");
+    MTL::Function *performScanFn = createKernelFn("performScan", defaultLibrary);
 
     auto cmdBuffer = commandQueue->commandBuffer();
     auto encoder = cmdBuffer->computeCommandEncoder();
@@ -208,11 +208,11 @@ void MTLComputeEngine::findMaxValInTexture(MTL::Texture *texture, MTL::Buffer *&
     }
 
     // Pass 1 pipeline - find max per thread group
-    auto maxPerThreadGroupFn = createKernelFn("findMaxPerThreadgroupKernel");
+    auto maxPerThreadGroupFn = createKernelFn("findMaxPerThreadgroupKernel", defaultLibrary);
     MTL::ComputePipelineState *findMaxPipeline = createComputePipeline(maxPerThreadGroupFn);
 
     // Pass 2 pipeline - reduce to find final max
-    auto reduceMaxFn = createKernelFn("reduceMaxKernel");
+    auto reduceMaxFn = createKernelFn("reduceMaxKernel", defaultLibrary);
     MTL::ComputePipelineState *reduceMaxPipeline = createComputePipeline(reduceMaxFn);
 
     auto cmdBuffer = commandQueue->commandBuffer();
@@ -282,7 +282,7 @@ void MTLComputeEngine::normaliseTexture(MTL::Texture *texture, MTL::Buffer *&max
     }
 
     // Initialise normalise kernel function
-    auto normaliseFn = createKernelFn("normaliseKernel");
+    auto normaliseFn = createKernelFn("normaliseKernel", defaultLibrary);
 
     // Create compute pipeline
     MTL::ComputePipelineState *normalisePipeline = createComputePipeline(normaliseFn);
@@ -312,8 +312,8 @@ void MTLComputeEngine::normaliseTexture(MTL::Texture *texture, MTL::Buffer *&max
 std::chrono::duration<double, std::milli> MTLComputeEngine::reconstructImage(int numIterations,
                                                                              double &finalUpdateNorm) {
     // Initialise reconstruction and update functions
-    auto cimminoFn = createKernelFn("cimminosReconstruction");
-    auto applyUpdateFn = createKernelFn("applyUpdate");
+    auto cimminoFn = createKernelFn("cimminosReconstruction", defaultLibrary);
+    auto applyUpdateFn = createKernelFn("applyUpdate", defaultLibrary);
 
     // Create pipelines
     auto cimminoPipeline = createComputePipeline(cimminoFn);

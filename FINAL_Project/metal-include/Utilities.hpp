@@ -45,6 +45,14 @@ struct SparseMatrix {
     std::vector<float> vals;
 };
 
+/**
+ * @brief Create a Metal kernel function from the library.
+ * @param functionName The name of the kernel function to create.
+ * @return A pointer to the created Metal function.
+ * Exits the program if the function cannot be found.
+ */
+MTL::Function* createKernelFn(const char* functionName, MTL::Library* library);
+
 
 /**
  * @brief Load sparse projection matrix from binary file for testing.

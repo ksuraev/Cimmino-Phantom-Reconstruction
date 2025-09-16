@@ -4,6 +4,15 @@
  */
 #include "../metal-include/Utilities.hpp"
 
+MTL::Function* createKernelFn(const char* functionName, MTL::Library* library) {
+    MTL::Function* fn = library->newFunction(NS::String::string(functionName, NS::UTF8StringEncoding));
+    if (!fn) {
+        std::cerr << "Failed to find kernel " << functionName << " in the library." << std::endl;
+        std::exit(-1);
+    }
+    return fn;
+}
+
 bool loadSparseMatrixBinary(const std::string& filename, SparseMatrix& matrix, SparseMatrixHeader& header) {
     std::ifstream inFile(filename, std::ios::binary);
     if (!inFile) {

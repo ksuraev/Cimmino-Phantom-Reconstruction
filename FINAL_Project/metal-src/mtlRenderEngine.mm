@@ -25,6 +25,26 @@ MTLRenderEngine::~MTLRenderEngine() {
     glfwTerminate();
 }
 
+void MTLRenderEngine::initWindow() {
+    glfwInit();
+    glfwWindowHint(GLFW_CLIENT_API, GLFW_NO_API);
+    glfwWindow = glfwCreateWindow(400, 400, "Cimmino's Phantom Reconstruction", NULL, NULL);
+    if (!glfwWindow) {
+        glfwTerminate();
+        exit(EXIT_FAILURE);
+    }
+
+    glfwSetWindowUserPointer(glfwWindow, this);
+    glfwSetFramebufferSizeCallback(glfwWindow, frameBufferSizeCallback);
+    glfwSetKeyCallback(glfwWindow, MTLRenderEngine::keyCallback);
+    metalWindow = glfwGetCocoaWindow(glfwWindow);
+    metalLayer = [CAMetalLayer layer];
+    metalLayer.device = (__bridge id<MTLDevice>)device;
+    metalLayer.pixelFormat = MTLPixelFormatBGRA8Unorm;
+    metalWindow.contentView.layer = metalLayer;
+    metalWindow.contentView.wantsLayer = YES;
+}
+
 void MTLRenderEngine::frameBufferSizeCallback(GLFWwindow *window, int width, int height) {
     MTLRenderEngine *engine = (MTLRenderEngine *)glfwGetWindowUserPointer(window);
     engine->resizeFrameBuffer(width, height);
@@ -37,15 +57,6 @@ CA::MetalDrawable *MTLRenderEngine::getNextDrawable(CAMetalLayer *nativeLayer) {
     id<CAMetalDrawable> nativeDrawable = [nativeLayer nextDrawable];
     // Cast the result back to the C++ wrapper type
     return (__bridge CA::MetalDrawable *)nativeDrawable;
-}
-
-MTL::Function *MTLRenderEngine::createKernelFn(const char *functionName) {
-    MTL::Function *fn = library->newFunction(NS::String::string(functionName, NS::UTF8StringEncoding));
-    if (!fn) {
-        std::cerr << "Failed to find kernel " << functionName << " in the library." << std::endl;
-        std::exit(-1);
-    }
-    return fn;
 }
 
 void MTLRenderEngine::createRenderPipeline() {
@@ -64,8 +75,8 @@ void MTLRenderEngine::createRenderPipeline() {
                                     numColors * sizeof(float) * 4);
 
     // Extract vertex and fragment kernel functions from library
-    MTL::Function *vertexFn = createKernelFn("vertex_main");
-    MTL::Function *fragmentFn = createKernelFn("fragment_main");
+    MTL::Function *vertexFn = createKernelFn("vertex_main", library);
+    MTL::Function *fragmentFn = createKernelFn("fragment_main", library);
 
     // Set render pipeline descriptor with functions and pixel format
     MTL::RenderPipelineDescriptor *renderDesc = MTL::RenderPipelineDescriptor::alloc()->init();
@@ -92,6 +103,7 @@ void MTLRenderEngine::createRenderPipeline() {
 void MTLRenderEngine::keyCallback(GLFWwindow *window, int key, int scancode, int action, int mods) {
     // Retrieve the MTLRenderEngine instance from the user pointer
     MTLRenderEngine *engine = static_cast<MTLRenderEngine *>(glfwGetWindowUserPointer(window));
+
     if (action == GLFW_PRESS || action == GLFW_REPEAT) {
         switch (key) {
             case GLFW_KEY_RIGHT:
@@ -154,24 +166,4 @@ void MTLRenderEngine::render() {
 
         framePool->release();
     }
-}
-
-void MTLRenderEngine::initWindow() {
-    glfwInit();
-    glfwWindowHint(GLFW_CLIENT_API, GLFW_NO_API);
-    glfwWindow = glfwCreateWindow(400, 400, "Cimmino's Phantom Reconstruction", NULL, NULL);
-    if (!glfwWindow) {
-        glfwTerminate();
-        exit(EXIT_FAILURE);
-    }
-
-    glfwSetWindowUserPointer(glfwWindow, this);
-    glfwSetFramebufferSizeCallback(glfwWindow, frameBufferSizeCallback);
-    glfwSetKeyCallback(glfwWindow, MTLRenderEngine::keyCallback);
-    metalWindow = glfwGetCocoaWindow(glfwWindow);
-    metalLayer = [CAMetalLayer layer];
-    metalLayer.device = (__bridge id<MTLDevice>)device;
-    metalLayer.pixelFormat = MTLPixelFormatBGRA8Unorm;
-    metalWindow.contentView.layer = metalLayer;
-    metalWindow.contentView.wantsLayer = YES;
 }

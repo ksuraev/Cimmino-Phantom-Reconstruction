@@ -82,13 +82,6 @@ private:
   std::string basePath = PROJECT_BASE_PATH;
 
   /**
-   * @brief Create a kernel function from the default library.
-   * @param functionName The name of the kernel function to create.
-   * @return The created kernel function.
-   */
-  MTL::Function* createKernelFn(const char* functionName);
-
-  /**
    * @brief Create a compute pipeline state for a given kernel function.
    * @param function The kernel function to create the pipeline for.
    * @return The created compute pipeline state.
