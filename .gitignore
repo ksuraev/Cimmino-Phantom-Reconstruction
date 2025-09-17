@@ -1,0 +1,109 @@
+# Ignore all
+*
+
+# Unignore all with extensions
+!*.*
+
+# Unignore all dirs
+!*/
+
+# Ignore macOS system files
+.DS_Store
+
+# Ignore vscode config
+*.vscode
+
+# C++ build artifacts
+*.o
+*.obj
+*.exe
+*.out
+*.a
+*.so
+*.dll
+*.dylib
+*.
+*.log
+*.cmake
+CMakeFiles/
+build/
+Makefile
+
+# Jupyter Notebook temporary files
+.ipynb_checkpoints/
+*.~ipynb
+
+# LaTeX auxiliary files
+*.aux
+*.log
+*.toc
+*.lof
+*.lot
+*.fls
+*.fdb_latexmk
+*.synctex.gz
+*.bbl
+*.tex
+*.blg
+*.bib
+*.out
+*.thm
+*.nav
+*.snm
+*.vrb
+*.xdv
+*.pdfsync
+*.dvi
+*.ps
+*.xml
+*.bcf
+*.spl
+# Prerequisites
+*.d
+_minted-report/
+_minted-doc/
+*.bbl-SAVE-ERROR
+
+# Compiled Object files
+*.slo
+*.lo
+*.o
+*.obj
+
+# Precompiled Headers
+*.gch
+*.pch
+
+# Linker files
+*.ilk
+
+# Debugger Files
+*.pdb
+
+# Compiled Dynamic libraries
+*.so
+*.dylib
+*.dll
+
+# Fortran module files
+*.mod
+*.smod
+
+# Compiled Static libraries
+*.lai
+*.la
+*.a
+*.lib
+
+# Executables
+*.exe
+*.out
+*.app
+
+# debug information files
+*.dwo
+.vscode/settings.json
+projection_256.bin
+*.bin
+metal-cpp/
+.vscode/
