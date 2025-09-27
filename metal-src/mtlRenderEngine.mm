@@ -28,7 +28,7 @@ MTLRenderEngine::~MTLRenderEngine() {
 void MTLRenderEngine::initWindow() {
     glfwInit();
     glfwWindowHint(GLFW_CLIENT_API, GLFW_NO_API);
-    glfwWindow = glfwCreateWindow(400, 400, "Cimmino's Phantom Reconstruction", NULL, NULL);
+    glfwWindow = glfwCreateWindow(512, 512, "Cimmino's Phantom Reconstruction", NULL, NULL);
     if (!glfwWindow) {
         glfwTerminate();
         exit(EXIT_FAILURE);
