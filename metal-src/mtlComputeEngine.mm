@@ -193,12 +193,13 @@ void MTLComputeEngine::performScan(std::vector<float> &phantomData) {
     normaliseTexture(sinogramTexture, maxValSinogramBuffer);
 
     /* Uncomment to save non-normalised sinogram buffer to .bin file */
-    // saveSinogram(basePath + "/metal-data/sinogram_256.bin", sinogramBuffer,
-    // totalRays);
+    // std::string binFilePath = basePath + "/metal-data/sinogram_" + std::to_string(geom.imageWidth) + ".bin";
+    // saveSinogram(binFilePath, sinogramBuffer, totalRays);
 
     /* Uncomment to save normalised sinogram texture to .txt file */
-    // saveTextureToFile(basePath + "/metal-data/sinogram_256.txt",
-    // sinogramTexture);
+    std::string normalisedFilePath =
+        basePath + "/metal-data/sinogram_" + std::to_string(geom.imageWidth) + "_normalised.txt";
+    saveTextureToFile(normalisedFilePath, sinogramTexture);
 }
 
 void MTLComputeEngine::findMaxValInTexture(MTL::Texture *texture, MTL::Buffer *&maxValbuffer) {
@@ -429,6 +430,7 @@ std::chrono::duration<double, std::milli> MTLComputeEngine::reconstructImage(int
     // Copy reconstructed buffer into texture using blit encoder
     copyBlit->copyFromBuffer(reconstructedBuffer, 0, sourceBytesPerRow, sourceBytesPerImage,
                              MTL::Size(width, height, 1), reconstructedTexture, 0, 0, MTL::Origin(0, 0, 0));
+
     copyBlit->endEncoding();
     cmdBuffer->commit();
     cmdBuffer->waitUntilCompleted();
@@ -436,7 +438,8 @@ std::chrono::duration<double, std::milli> MTLComputeEngine::reconstructImage(int
     std::cout << "Reconstruction complete. Reconstructed image copied to texture." << std::endl;
 
     // Save reconstructed texture to file
-    std::string imageFileName = basePath + "/metal-data/metal_" + std::to_string(numIterations) + ".txt";
+    std::string imageFileName = basePath + "/metal-data/metal_" + std::to_string(numIterations) + "_" +
+                                std::to_string(geom.imageWidth) + ".txt";
     saveTextureToFile(imageFileName, reconstructedTexture);
 
     return totalReconstructTime;
