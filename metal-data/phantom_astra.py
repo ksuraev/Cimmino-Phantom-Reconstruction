@@ -1,6 +1,7 @@
 # This script generates a Shepp-Logan phantom using the ASTRA toolbox
 # and saves it to a text file.
 
+import os
 import astra
 import numpy as np
 
@@ -8,12 +9,13 @@ import numpy as np
 # Get the directory of the current script
 script_dir = os.path.dirname(os.path.realpath(__file__))
 
-# File to save the projection matrix - must be saved in metal-data directory
-output_filename = os.path.join(script_dir, "phantom_256.txt")
-
 # Define the volume geometry
-image_size = 256
+image_size = 512
 vol_geom = astra.create_vol_geom(image_size, image_size)
+
+# File to save the projection matrix - must be saved in metal-data directory
+output_filename = os.path.join(script_dir, "phantom_" + str(image_size) + ".txt")
+
 
 # Create Shepp-Logan phantom using ASTRA
 phantom = astra.data2d.shepp_logan(vol_geom)
