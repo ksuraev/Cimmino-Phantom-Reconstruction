@@ -2,6 +2,11 @@
 metal_0_512.txt
 metal_9_512.txt
 metal_99_512.txt
+metal_499_512.txt
 metal_999_512.txt
 metal_4999_512.txt
 metal_9999_512.txt
+residuals.nb.html
+residuals.Rmd
+sinogram_256_normalised.txt
+sinogram_512_normalised.txt
