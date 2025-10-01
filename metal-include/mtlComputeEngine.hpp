@@ -27,6 +27,7 @@ public:
    */
   ~MTLComputeEngine();
 
+
   /**
    * @brief Generate the projection matrix, calculate the total row weight sum,
    * and upload the matrix data to Metal buffers.
@@ -87,6 +88,25 @@ private:
    * @return The created compute pipeline state.
    */
   MTL::ComputePipelineState* createComputePipeline(MTL::Function* function);
+
+  /**
+   * @brief Create a Metal buffer with specified size, options, and optional initial data.
+   * @param size The size of the buffer in bytes.
+   * @param options The resource options for the buffer.
+   * @param data Optional pointer to initial data to copy into the buffer.
+   * @return The created Metal buffer.
+   */
+  MTL::Buffer* createBuffer(size_t size, MTL::ResourceOptions options, void* data);
+
+  /**
+   * @brief Create a Metal texture with specified width, height, pixel format, and usage.
+   * @param width The width of the texture.
+   * @param height The height of the texture.
+   * @param pixelFormat The pixel format of the texture.
+   * @param usage The texture usage options.
+   * @return The created Metal texture.
+   */
+  MTL::Texture* createTexture(uint width, uint height, MTL::PixelFormat pixelFormat, MTL::TextureUsage usage);
 
   /**
    * @brief Calculate grid and thread group sizes and dispatch threads for a compute kernel.
