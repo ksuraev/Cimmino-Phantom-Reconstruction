@@ -14,16 +14,19 @@ from scipy.sparse import csr_matrix
 # Get the directory of the current script
 script_dir = os.path.dirname(os.path.realpath(__file__))
 
-# File to save the projection matrix - must be saved in metal-data directory
-output_filename = os.path.join(script_dir, "projection_256_astra.bin")
-
 # Define the volume geometry
-image_size = 256
+image_size = 512
 vol_geom = astra.create_vol_geom(image_size, image_size)
+
+# File to save the projection matrix - must be saved in metal-data directory
+output_filename = os.path.join(script_dir, "projection_" + str(image_size) + ".bin")
 
 # Define projection geometry
 # Number of detectors is based on image size
 num_detectors = int(np.ceil(2 * np.sqrt(2) * image_size))
+
+# Print number of detectors
+print(f"Number of detectors: {num_detectors}")
 
 # Set number of angles and angle total degrees
 angles = np.linspace(0, np.pi, 90, False)
