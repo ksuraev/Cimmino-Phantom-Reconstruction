@@ -60,7 +60,6 @@ private:
   MTL::CommandQueue* commandQueue;
 
   /* BUFFERS */
-  MTL::Buffer* geomBuffer;
   MTL::Buffer* offsetsBuffer;
   MTL::Buffer* colsBuffer;
   MTL::Buffer* valsBuffer;
@@ -80,6 +79,7 @@ private:
   uint totalRays;
   size_t totalNonZeroElements;
   float totalWeightSum;
+  double phantomNorm;
   std::string basePath = PROJECT_BASE_PATH;
 
   /**
@@ -115,6 +115,25 @@ private:
    * @param totalElements The total number of elements to process.
    */
   void dispatchThreads(MTL::ComputeCommandEncoder* encoder, MTL::ComputePipelineState* pipeline, size_t totalElements);
+
+  /**
+   * @brief Copy data from a Metal buffer to a 2D Metal texture.
+   * @param cmdBuffer The command buffer to encode the copy operation.
+   * @param buffer The Metal buffer containing the data to copy.
+   * @param texture The Metal texture to copy the data into.
+   * @param width The width of the texture.
+   * @param height The height of the texture.
+   * Source: https://developer.apple.com/documentation/metal/reading-pixel-data-from-a-drawable-texture
+   * Source: https://developer.apple.com/documentation/metal/mtlblitcommandencoder
+   */
+  void copyBufferToTexture(MTL::CommandBuffer* cmdBuffer, MTL::Buffer* buffer, MTL::Texture* texture, size_t width,
+    size_t height);
+
+  /**
+   * @brief Initialise the phantom data by flipping it vertically and calculating its norm.
+   * @param phantomData The input phantom image data as a flat vector.
+   */
+  void initialisePhantom(std::vector<float>& phantomData);
 
   /**
    * @brief Find the maximum value in a Metal texture and store it in a buffer.

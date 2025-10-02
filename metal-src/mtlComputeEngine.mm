@@ -20,9 +20,6 @@ MTLComputeEngine::MTLComputeEngine(MetalContext &context, const Geometry &geom) 
     device = context.getDevice();
     commandQueue = context.getCommandQueue();
     defaultLibrary = context.getLibrary();
-
-    // Set geometry buffer
-    geomBuffer = createBuffer(sizeof(Geometry), MTL::ResourceStorageModeShared, (void *)&geom);
 }
 
 MTLComputeEngine::~MTLComputeEngine() {}
@@ -83,11 +80,19 @@ void MTLComputeEngine::dispatchThreads(MTL::ComputeCommandEncoder *encoder, MTL:
     encoder->dispatchThreads(gridSize, MTL::Size(threadGroupSize, 1, 1));
 }
 
+void MTLComputeEngine::copyBufferToTexture(MTL::CommandBuffer *cmdBuffer, MTL::Buffer *buffer, MTL::Texture *texture,
+                                           size_t width, size_t height) {
+    auto blitEncoder = cmdBuffer->blitCommandEncoder();
+    blitEncoder->copyFromBuffer(buffer, 0, width * sizeof(float), 0, MTL::Size(width, height, 1), texture, 0, 0,
+                                MTL::Origin(0, 0, 0));
+    blitEncoder->endEncoding();
+}
+
 void MTLComputeEngine::generateProjectionMatrix(const std::string &projectionFileName) {
-    // Load projection matrix from binary file - generated using Astra Toolbox
+    // Load projection matrix from binary file - generated using ASTRA Toolbox
     SparseMatrixHeader header;
     SparseMatrix matrix;
-    loadSparseMatrixBinary(basePath + "/metal-data/" + projectionFileName, matrix, header);
+    loadSparseMatrixBinary(std::string(PROJECT_BASE_PATH) + "/metal-data/" + projectionFileName, matrix, header);
 
     totalNonZeroElements = header.num_non_zero;
 
@@ -118,9 +123,16 @@ void MTLComputeEngine::generateProjectionMatrix(const std::string &projectionFil
     }
 }
 
-void MTLComputeEngine::performScan(std::vector<float> &phantomData) {
+void MTLComputeEngine::initialisePhantom(std::vector<float> &phantomData) {
     // Flip phantom data vertically for correct orientation
     std::vector<float> flippedPhantomData = flipImageVertically(phantomData, geom.imageWidth, geom.imageHeight);
+
+    // Precompute phantom norm for convergence checking
+    float phantomNormSum = 0.0f;
+    for (const auto &val : flippedPhantomData) {
+        phantomNormSum += val * val;
+    }
+    phantomNorm = (double)sqrt(phantomNormSum);
 
     // Create texture and buffer for phantom
     originalPhantomTexture =
@@ -135,11 +147,15 @@ void MTLComputeEngine::performScan(std::vector<float> &phantomData) {
         std::cerr << "Error: Failed to create phantom texture. " << std::endl;
         exit(-1);
     }
+}
+
+void MTLComputeEngine::performScan(std::vector<float> &phantomData) {
+    // Initialise phantom
+    initialisePhantom(phantomData);
 
     sinogramBuffer = createBuffer(totalRays * sizeof(float), MTL::ResourceStorageModeShared);
 
-    // Load perform scan kernel function
-    // MTL::Function *performScanFn = createKernelFn("performScan", defaultLibrary);
+    // Load compute sinogram kernel function
     MTL::Function *computeSinogram = createKernelFn("computeSinogram", defaultLibrary);
 
     auto cmdBuffer = commandQueue->commandBuffer();
@@ -156,14 +172,7 @@ void MTLComputeEngine::performScan(std::vector<float> &phantomData) {
     encoder->setBuffer(sinogramBuffer, 0, 4);
     encoder->setBytes(&totalRays, sizeof(uint), 5);
     encoder->setComputePipelineState(scanPipeline);
-    // encoder->setBuffer(phantomBuffer, 0, 0);
-    // encoder->setBuffer(sinogramBuffer, 0, 1);
-    // encoder->setBuffer(geomBuffer, 0, 2);
-    // encoder->setBytes(&imgCenterX, sizeof(float), 3);
-    // encoder->setBytes(&imgCenterY, sizeof(float), 4);
-    // encoder->setBytes(&numSteps, sizeof(int), 5);
 
-    // Perform scan
     dispatchThreads(encoder, scanPipeline, totalRays);
     encoder->endEncoding();
 
@@ -171,31 +180,25 @@ void MTLComputeEngine::performScan(std::vector<float> &phantomData) {
     sinogramTexture = createTexture(geom.nDetectors, geom.nAngles, MTL::PixelFormatR32Float,
                                     MTL::TextureUsageShaderRead | MTL::TextureUsageShaderWrite);
 
-    // source
-    // https://developer.apple.com/documentation/metal/reading-pixel-data-from-a-drawable-texture
-    // source
-    // https://developer.apple.com/documentation/metal/mtlblitcommandencoder
-    auto blitEncoder = cmdBuffer->blitCommandEncoder();
-    blitEncoder->copyFromBuffer(sinogramBuffer, 0, geom.nDetectors * sizeof(float), 0,
-                                MTL::Size(geom.nDetectors, geom.nAngles, 1), sinogramTexture, 0, 0,
-                                MTL::Origin(0, 0, 0));
-    blitEncoder->endEncoding();
+    copyBufferToTexture(cmdBuffer, sinogramBuffer, sinogramTexture, geom.nDetectors, geom.nAngles);
 
     // Commit and wait only once everything is encoded
     cmdBuffer->commit();
     cmdBuffer->waitUntilCompleted();
 
+    /* Uncomment to save non-normalised sinogram buffer to .txt file */
+    // std::string filePath =
+    //     std::string(PROJECT_BASE_PATH) + "/metal-data/sinogram_" + std::to_string(geom.imageWidth) + ".txt";
+    // saveTextureToFile(filePath, sinogramTexture);
+
     // Normalise sinogram texture
     findMaxValInTexture(sinogramTexture, maxValSinogramBuffer);
     normaliseTexture(sinogramTexture, maxValSinogramBuffer);
 
-    /* Uncomment to save non-normalised sinogram buffer to .txt file */
-    // std::string filePath = basePath + "/metal-data/sinogram_" + std::to_string(geom.imageWidth) + ".txt";
-    // saveTextureToFile(filePath, sinogramTexture);
-
     /* Uncomment to save normalised sinogram texture to .txt file */
     // std::string normalisedFilePath =
-    //     basePath + "/metal-data/sinogram_" + std::to_string(geom.imageWidth) + "_normalised.txt";
+    //     std::string(PROJECT_BASE_PATH) + "/metal-data/sinogram_" + std::to_string(geom.imageWidth) +
+    //     "_norm.txt";
     // saveTextureToFile(normalisedFilePath, sinogramTexture);
 }
 
@@ -273,7 +276,7 @@ void MTLComputeEngine::normaliseTexture(MTL::Texture *texture, MTL::Buffer *&max
         exit(-1);
     }
     if (!maxValBuffer) {
-        std::cout << "Max val buffer is null." << std::endl;
+        std::cerr << "Max val buffer is null. Cannot normalise texture." << std::endl;
         exit(-1);
     }
 
@@ -304,14 +307,15 @@ void MTLComputeEngine::normaliseTexture(MTL::Texture *texture, MTL::Buffer *&max
 
 std::chrono::duration<double, std::milli> MTLComputeEngine::reconstructImage(int numIterations,
                                                                              double &relativeErrorNorm) {
+    auto startTimeTotal = std::chrono::high_resolution_clock::now();
     // Initialise reconstruction and update functions
     auto cimminoFn = createKernelFn("cimminosReconstruction", defaultLibrary);
     auto applyUpdateFn = createKernelFn("applyUpdate", defaultLibrary);
-
+    auto computeDifferenceFn = createKernelFn("computeRelativeDifference", defaultLibrary);
     auto cimminoPipeline = createComputePipeline(cimminoFn);
     auto applyUpdatePipeline = createComputePipeline(applyUpdateFn);
+    auto computeDifferencePipeline = createComputePipeline(computeDifferenceFn);
 
-    // auto computeDifferencePipeline = createComputePipeline(createKernelFn("computeDifference", defaultLibrary));
     size_t width = geom.imageWidth;
     size_t height = geom.imageHeight;
     uint imageSize = width * height;
@@ -321,15 +325,10 @@ std::chrono::duration<double, std::milli> MTLComputeEngine::reconstructImage(int
     auto updateBuffer = createBuffer(imageSize * sizeof(float), MTL::ResourceStorageModeShared);
 
     auto differenceSumBuffer = createBuffer(sizeof(float), MTL::ResourceStorageModeShared);
-    auto phantomNormBuffer = createBuffer(sizeof(float), MTL::ResourceStorageModeShared);
 
-    // Initialise reconstructed image to zero - check if memset is faster
-    MTL::CommandBuffer *cmdBuffer = commandQueue->commandBuffer();
-    MTL::BlitCommandEncoder *blit = cmdBuffer->blitCommandEncoder();
-    blit->fillBuffer(reconstructedBuffer, NS::Range(0, imageSize * sizeof(float)), 0.0f);
-    blit->endEncoding();
-    cmdBuffer->commit();
-    cmdBuffer->waitUntilCompleted();
+    // Initialise reconstructed image to zero
+    memset(reconstructedBuffer->contents(), 0, reconstructedBuffer->length());
+    auto cmdBuffer = commandQueue->commandBuffer();
 
     std::cout << "Starting reconstruction for " << numIterations << " iterations..." << std::endl;
 
@@ -337,7 +336,6 @@ std::chrono::duration<double, std::milli> MTLComputeEngine::reconstructImage(int
     auto startTime = std::chrono::high_resolution_clock::now();
 
     for (int i = 0; i < numIterations; ++i) {
-        // Reset command buffer for each iteration
         cmdBuffer = commandQueue->commandBuffer();
 
         // Reset update buffer to zero
@@ -362,9 +360,9 @@ std::chrono::duration<double, std::milli> MTLComputeEngine::reconstructImage(int
         encoder->setComputePipelineState(applyUpdatePipeline);
         encoder->setBuffer(reconstructedBuffer, 0, 0);
         encoder->setBuffer(updateBuffer, 0, 1);
-        encoder->setBuffer(phantomBuffer, 0, 2);
-        encoder->setBuffer(differenceSumBuffer, 0, 3);
-        encoder->setBuffer(phantomNormBuffer, 0, 4);
+        // encoder->setBuffer(phantomBuffer, 0, 2);
+        // encoder->setBuffer(differenceSumBuffer, 0, 3);
+        // encoder->setBuffer(phantomNormBuffer, 0, 4);
         encoder->setBytes(&imageSize, sizeof(uint), 5);
         dispatchThreads(encoder, applyUpdatePipeline, imageSize);
         encoder->endEncoding();
@@ -374,23 +372,29 @@ std::chrono::duration<double, std::milli> MTLComputeEngine::reconstructImage(int
 
         // Check for convergence every 50 iterations
         if ((i + 1) % 50 == 0) {
-            double *differenceSum = static_cast<double *>(differenceSumBuffer->contents());
-            double *phantomNorm = static_cast<double *>(phantomNormBuffer->contents());
+            // Compute relative error norm
+            cmdBuffer = commandQueue->commandBuffer();
+            encoder = cmdBuffer->computeCommandEncoder();
 
-            double differenceNorm = sqrt(*differenceSum);
-            double phantomNormValue = sqrt(*phantomNorm);
+            encoder->setComputePipelineState(computeDifferencePipeline);
+            encoder->setBuffer(reconstructedBuffer, 0, 0);
+            encoder->setBuffer(phantomBuffer, 0, 1);
+            encoder->setBuffer(differenceSumBuffer, 0, 2);
+            dispatchThreads(encoder, computeDifferencePipeline, imageSize);
+            encoder->endEncoding();
+            cmdBuffer->commit();
+            cmdBuffer->waitUntilCompleted();
 
-            relativeErrorNorm = differenceNorm / phantomNormValue;
+            // Read back difference sum and compute relative error norm
+            float *differenceSum = static_cast<float *>(differenceSumBuffer->contents());
+            relativeErrorNorm = sqrt((double)(*differenceSum)) / phantomNorm;
 
-            // Check convergence
             if (relativeErrorNorm < 1e-2) {
-                std::cout << "Converged with relative error norm: " << relativeErrorNorm << std::endl;
+                std::cout << "Converged after " << (i + 1) << " iterations with relative error norm "
+                          << relativeErrorNorm << std::endl;
                 break;
             }
-
-            // Reset the buffers for the next iteration
             memset(differenceSumBuffer->contents(), 0, sizeof(float));
-            memset(phantomNormBuffer->contents(), 0, sizeof(float));
         }
     }
 
@@ -400,25 +404,26 @@ std::chrono::duration<double, std::milli> MTLComputeEngine::reconstructImage(int
     std::cout << "Reconstruction time for " << numIterations << " iterations " << totalReconstructTime.count() << " ms"
               << std::endl;
 
+    auto endTimeTotal = std::chrono::high_resolution_clock::now();
+    std::chrono::duration<double, std::milli> totalTime = endTimeTotal - startTimeTotal;
+    std::cout << "Total time including data transfers: " << totalTime.count() << " ms" << std::endl;
+
     // Create texture for reconstructed image
     reconstructedTexture = createTexture(width, height, MTL::PixelFormatR32Float, MTL::TextureUsageShaderRead);
 
     // Copy reconstructed buffer into texture using blit encoder
     cmdBuffer = commandQueue->commandBuffer();
-    MTL::BlitCommandEncoder *copyBlit = cmdBuffer->blitCommandEncoder();
-    copyBlit->copyFromBuffer(reconstructedBuffer, 0, width * sizeof(float), width * sizeof(float) * height,
-                             MTL::Size(width, height, 1), reconstructedTexture, 0, 0, MTL::Origin(0, 0, 0));
+    copyBufferToTexture(cmdBuffer, reconstructedBuffer, reconstructedTexture, width, height);
 
-    copyBlit->endEncoding();
     cmdBuffer->commit();
     cmdBuffer->waitUntilCompleted();
-
-    std::cout << "Reconstruction complete. Reconstructed image copied to texture." << std::endl;
 
     // Save reconstructed texture to file
     std::string imageFileName = basePath + "/metal-data/metal_" + std::to_string(numIterations) + "_" +
                                 std::to_string(geom.imageWidth) + ".txt";
     saveTextureToFile(imageFileName, reconstructedTexture);
+
+    std::cout << "Reconstruction complete. Reconstructed image saved." << std::endl;
 
     return totalReconstructTime;
 }
