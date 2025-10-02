@@ -107,3 +107,5 @@ projection_256.bin
 *.bin
 metal-cpp/
 .vscode/
+metal-logs/incorrectnorm_performance_log.csv
+Other-Implementations/logs/incorrectnorm_performance_log.csv

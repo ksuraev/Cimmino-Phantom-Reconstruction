@@ -12,53 +12,31 @@ struct Geometry {
 };
 
 
-// Calculate the sinogram from the phantom image
+// Calculate the sinogram by projecting the phantom image
 // Simulate the projection of rays through the image/phantom
-// Source https://github.com/ferasboulala/radon-tf/blob/master/radon/radon.inl.hpp
-// https://github.com/tknopp/numcpp/blob/master/numcpp/numcpp/tomography/radon.cpp
-kernel void performScan(device float* phantomBuffer [[buffer(0)]], 
-                        device float* sinogramBuffer [[buffer(1)]],
-                        constant Geometry& geom [[buffer(2)]], 
-                        constant float& center_x [[buffer(3)]],
-                        constant float& center_y [[buffer(4)]], 
-                        constant int& num_steps [[buffer(5)]],
-                        uint gid [[thread_position_in_grid]]) {
-  // Each thread finds the detector and angle it is responsible for
-  uint angle_idx = gid / geom.nDetectors;
-  uint detector_idx = gid % geom.nDetectors;
+kernel void computeSinogram(const device float* phantom [[buffer(0)]],
+                            const device int* offsetsBuffer_A [[buffer(1)]],
+                            const device int* colsBuffer_A [[buffer(2)]],
+                            const device float* valsBuffer_A [[buffer(3)]],
+                            device float* sinogram [[buffer(4)]],
+                            constant uint& numRays [[buffer(5)]],
+                            uint gid [[thread_position_in_grid]]) {
+    // Each thread computes one row of the sinogram
+    uint rayIndex = gid;
+    if (rayIndex >= numRays) return;
 
-  // Bounds check
-  if (angle_idx >= geom.nAngles || detector_idx >= geom.nDetectors) return;
+    // Get row start and end for this ray
+    int rowStart = offsetsBuffer_A[rayIndex];
+    int rowEnd = offsetsBuffer_A[rayIndex + 1];
 
-  // Calculate the ray direction and position
-  float angle = M_PI_F * angle_idx / geom.nAngles;
-  float dir_x = cos(angle), dir_y = sin(angle);
-  float perp_dir_x = -dir_y, perp_dir_y = dir_x;
-  float detector_pos = detector_idx - (geom.nDetectors / 2.0f);
-
-  // Perform ray marching - accumulate samples along the ray
-  float accumulator = 0.0f;
-  float step_size = 2.0f;
-
-  float start_x = center_x + detector_pos * perp_dir_x;
-  float start_y = center_y + detector_pos * perp_dir_y;
-
-  for (int i = -num_steps / 2; i < num_steps / 2; ++i) {
-    float t = i * step_size;
-    int current_x = static_cast<int>(start_x + t * dir_x);
-    int current_y = static_cast<int>(start_y + t * dir_y);
-
-    float sample = 0.0f;
-    if (current_x >= 0 && current_y >= 0 && current_x < static_cast<int>(geom.imageWidth) &&
-        current_y < static_cast<int>(geom.imageHeight)) {
-      uint index = current_y * geom.imageWidth + current_x;
-      sample = phantomBuffer[index];
-      accumulator += sample;
+    // Compute the dot product for this ray
+    float dotProduct = 0.0f;
+    for (int i = rowStart; i < rowEnd; ++i) {
+        dotProduct += valsBuffer_A[i] * phantom[colsBuffer_A[i]];
     }
-  }
 
-  float finalValue = accumulator * step_size;
-  sinogramBuffer[gid] = finalValue;
+    // Store the result in the sinogram buffer
+    sinogram[rayIndex] = dotProduct;
 }
 
 // Source https://developer.apple.com/metal/Metal-Shading-Language-Specification.pdf
@@ -129,26 +107,23 @@ static void atomic_uint_exchange_if_greater_than(volatile device atomic_uint* cu
 kernel void reduceMaxKernel(const device float* mapBuffer [[buffer(0)]],
                             device atomic_uint* resultBuffer [[buffer(1)]],
                             uint gid [[thread_position_in_grid]]) {
-  // Read the local max found by one of threadgroups in pass 1
   float localMax = mapBuffer[gid];
 
   // Use the helper function to update global max
   atomic_uint_exchange_if_greater_than(resultBuffer, as_type<uint>(localMax));
 }
 
+// Normalise the texture by dividing each pixel by the global maximum
 kernel void normaliseKernel(texture2d<float, access::read_write> inputTexture [[texture(0)]],
                             const device float* maxValueBuffer [[buffer(1)]],
                             uint2 gid [[thread_position_in_grid]]) {
-  // Check if the thread is within the bounds of the texture
-  if (gid.x >= inputTexture.get_width() || gid.y >= inputTexture.get_height()) {
-    return;
-  }
+  if (gid.x >= inputTexture.get_width() || gid.y >= inputTexture.get_height()) return;
 
   // Read the current pixel value
   float currentVal = inputTexture.read(gid).r;
 
   // Read the global maximum value
-    float maxVal = maxValueBuffer[0];
+  float maxVal = maxValueBuffer[0];
 
   // Calculate the normalised value and write it back to the texture
     if (maxVal > 0.0f) {
@@ -160,19 +135,19 @@ kernel void normaliseKernel(texture2d<float, access::read_write> inputTexture [[
 }
 
 // Pass 1 of Cimmino's algorithm:
-kernel void cimminosReconstruction(const device float* reconstructedBuffer [[buffer(0)]],
+kernel void cimminosReconstruction(const device float* reconstructedBuffer [[buffer(0)]], // The current reconstruction x^k
                                    const device float* sinogramBuffer_b [[buffer(1)]],
                                    const device int* offsetsBuffer_A [[buffer(2)]],
                                    const device int* colsBuffer_A [[buffer(3)]],
                                    const device float* valsBuffer_A [[buffer(4)]],
                                    constant float& totalWeightSum [[buffer(5)]],
                                    constant uint& numRays [[buffer(6)]],
-                                   device atomic_float* updateBuffer [[buffer(7)]],
+                                   device atomic_float* updateBuffer [[buffer(7)]], // The next reconstruction x^(k+1)
                                    uint gid [[thread_position_in_grid]]) {
   uint rayIndex = gid;
   if (rayIndex >= numRays) return;
 
-  // Calculate the dot product <a_i, x>
+  // Get row start and end for this ray
   int rowStart = offsetsBuffer_A[rayIndex];
   int rowEnd = offsetsBuffer_A[rayIndex + 1];
 
@@ -202,12 +177,27 @@ kernel void cimminosReconstruction(const device float* reconstructedBuffer [[buf
 // Pass 2 of Cimmino's algorithm: apply the update to the reconstructed image
 kernel void applyUpdate(device float* reconstructedBuffer [[buffer(0)]],
                         const device float* updateBuffer [[buffer(1)]],
-                        constant uint& numPixels [[buffer(2)]],
+                        constant uint& numPixels [[buffer(5)]],
                         uint gid [[thread_position_in_grid]]) {
-  if (gid < numPixels) {
-    reconstructedBuffer[gid] += updateBuffer[gid];
-  }
+  if (gid >= numPixels) return;
+
+  // Apply the update to the reconstructed buffer
+  reconstructedBuffer[gid] += updateBuffer[gid];
 }
+
+kernel void computeRelativeDifference(const device float* reconstructedBuffer [[buffer(0)]],
+                                    const device float* phantomBuffer [[buffer(1)]],
+                                    device atomic_float* differenceSumBuffer [[buffer(2)]],
+                                    uint gid [[thread_position_in_grid]]) {
+  // Compute the difference between the reconstruction and the phantom
+  float currentValue = reconstructedBuffer[gid];
+  float phantomValue = phantomBuffer[gid];
+  float difference = currentValue - phantomValue;
+
+  // Accumulate the squared difference for the numerator
+  atomic_fetch_add_explicit(differenceSumBuffer, difference * difference, memory_order_relaxed);
+}
+
 
 // Vertex and Fragment shaders for rendering the texture with a colourmap
 // Source https://metaltutorial.com/Lesson%201%3A%20Hello%20Metal/3.%20Textures/
@@ -216,7 +206,6 @@ struct VertexOut {
   float2 texCoord;
 };
 
-// A simple vertex shader that passes through positions and texture coordinates
 vertex VertexOut vertex_main(uint vid [[vertex_id]]) {
   VertexOut out;
   float4 positions[4] = {float4(-1, -1, 0, 1), float4(1, -1, 0, 1), float4(-1, 1, 0, 1),
@@ -231,14 +220,14 @@ vertex VertexOut vertex_main(uint vid [[vertex_id]]) {
 // Source https://metaltutorial.com/Lesson%201%3A%20Hello%20Metal/3.%20Textures/
 fragment float4 fragment_main(VertexOut in [[stage_in]],
                               texture2d<float> imageTexture [[texture(0)]],
-                              texture2d<float> viridisTexture [[texture(1)]]) {
+                              texture2d<float> colourMapTexture [[texture(1)]]) {
   // Sample the image texture
-  constexpr sampler s(coord::normalized, address::clamp_to_edge, filter::linear);
+  constexpr sampler s(coord::normalized, address::clamp_to_edge, filter::nearest);
 
   float value = imageTexture.sample(s, in.texCoord).r;  // 0..1
 
   // Map single channel to colourmap texture
-  float2 viridisUV = float2(value, 0.5); 
-  float4 colour = viridisTexture.sample(s, viridisUV);
+  float2 colourMapUV = float2(value, 0.5); 
+  float4 colour = colourMapTexture.sample(s, colourMapUV);
   return colour;
 }
