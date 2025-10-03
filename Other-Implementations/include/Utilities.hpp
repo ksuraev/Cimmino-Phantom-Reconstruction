@@ -24,10 +24,10 @@
 
 // --- Shared Data Structures ---
 struct Geometry {
-    int imageWidth;
-    int imageHeight;
-    int nAngles;
-    int nDetectors;
+    uint32_t imageWidth;
+    uint32_t imageHeight;
+    uint32_t nAngles;
+    uint32_t nDetectors;
 };
 
 struct SparseMatrixHeader {
@@ -44,16 +44,15 @@ struct SparseMatrix {
 
 std::string getBasePath();
 
+// Load sparse projection matrix from binary file
 bool loadSparseMatrixBinary(const std::string& binFileName, SparseMatrix& matrix, SparseMatrixHeader header, size_t totalRays);
 
-// Load sparse projection matrix from binary file
-bool loadSinogram(const std::string& filename, std::vector<float>& sinogram, unsigned int numRays);
+
+bool loadSinogram(const std::string& filename, std::vector<float>& sinogram);
 
 // Load phantom from file
 std::vector<float> loadPhantom(const char* filename, const Geometry& geom);
 
-// Load sinogram
-bool loadSinogram(const std::string& filename, std::vector<float>& sinogram, unsigned int numRays);
 
 void logPerformance(const std::string& executionType,
     const Geometry& geom, const int numIterations,

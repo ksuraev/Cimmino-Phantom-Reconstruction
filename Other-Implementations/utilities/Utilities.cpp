@@ -88,12 +88,25 @@ std::vector<float> loadPhantom(const char* filename, const Geometry& geom) {
     return phantomData;
 }
 
-bool loadSinogram(const std::string& filename, std::vector<float>& sinogram, unsigned int numRays) {
-    std::ifstream in(filename, std::ios::binary);
-    if (!in) return false;
-    sinogram.resize(numRays);
-    in.read(reinterpret_cast<char*>(sinogram.data()), numRays * sizeof(float));
-    if (!in) return false;
+bool loadSinogram(const std::string& filename, std::vector<float>& sinogram) {
+    std::ifstream in(filename);
+    if (!in) {
+        std::cerr << "Error: Could not open file " << filename << std::endl;
+        return false;
+    }
+
+    sinogram.clear();  // Clear the vector to ensure it's empty before loading new data
+
+    float value;
+    while (in >> value) {  // Read float values from the file
+        sinogram.push_back(value);
+    }
+
+    if (sinogram.empty()) {
+        std::cerr << "Error: No data found in file " << filename << std::endl;
+        return false;
+    }
+
     return true;
 }
 
