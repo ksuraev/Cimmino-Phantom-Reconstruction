@@ -5,16 +5,17 @@
 
 #include "../include/Utilities.hpp"
 
-#define IMAGE_WIDTH 256
-#define IMAGE_HEIGHT 256
-#define NUM_ANGLES 90
+constexpr uint32_t IMAGE_WIDTH = 256;
+constexpr uint32_t IMAGE_HEIGHT = 256;
+constexpr uint32_t NUM_ANGLES = 90;
 
- /**
-  * @brief Compute the squared L2 norm of each row in the sparse matrix and the total weight sum.
-  * @param projector Sparse projection matrix in CSR format.
-  * @param totalRays Total number of rays (rows in the sinogram).
-  * @param totalWeightSum Variable to store the total sum of row weights.
-  */
+
+/**
+ * @brief Compute the squared L2 norm of each row in the sparse matrix and the total weight sum.
+ * @param projector Sparse projection matrix in CSR format.
+ * @param totalRays Total number of rays (rows in the sinogram).
+ * @param totalWeightSum Variable to store the total sum of row weights.
+ */
 void computeTotalWeight(const SparseMatrix& projector, size_t totalRays, float& totalWeightSum) {
     totalWeightSum = 0.0f;
     for (size_t r = 0; r < totalRays; ++r) {
@@ -26,6 +27,45 @@ void computeTotalWeight(const SparseMatrix& projector, size_t totalRays, float& 
 }
 
 /**
+ * @brief Precompute the L2 norm of the phantom image.
+ * @param phantom The original phantom image as a flat vector.
+ * @param phantomNorm Variable to store the computed L2 norm of the phantom.
+ */
+void precomputePhantomNorm(std::vector<float>& phantom, double& phantomNorm) {
+    float phantomNormSum = 0.0f;
+    for (const auto& val : phantom) {
+        phantomNormSum += val * val;
+    }
+    phantomNorm = sqrt(static_cast<double>(phantomNormSum));
+}
+
+/**
+ * @brief Calculate the error norm between the phantom and the reconstructed image.
+ * @param phantom The original phantom image as a flat vector.
+ * @param approximation The reconstructed image as a flat vector.
+ * @return The L2 norm of the error between the phantom and the approximation.
+ * Computed the same as metal kernels to ensure consistency.
+ */
+double calculateErrorNorm(std::vector<float>& phantom, std::vector<float>& approximation, double phantomNorm) {
+    std::vector<float> A = approximation;
+    std::vector<float> P = phantom;
+
+    float differenceSum = 0.0f;
+
+    for (size_t i = 0; i < A.size(); ++i) {
+        float currentValue = A[i];
+        float phantomValue = phantom[i];
+        float difference = currentValue - phantomValue;
+
+        differenceSum += difference * difference;
+    }
+
+    double differenceNorm = std::sqrt(static_cast<double>(differenceSum));
+    double relativeErrorNorm = differenceNorm / phantomNorm;
+    return relativeErrorNorm;
+}
+
+/**
  * @brief Perform Cimmino reconstruction.
  * @param maxIterations Number of iterations to perform.
  * @param projector Sparse projection matrix.
@@ -34,14 +74,18 @@ void computeTotalWeight(const SparseMatrix& projector, size_t totalRays, float& 
  * @param sinogram Input sinogram data.
  * @param totalWeightSum Total sum of row weights.
  * @return Reconstructed image as a flat vector.
+ * Computed the same as metal kernels to ensure consistency.
  */
 void cimminoReconstruct(int maxIterations,
     const SparseMatrix& projector,
     const SparseMatrixHeader& header,
     std::vector<float>& reconstructedVector,
+    std::vector<float>& phantom,
     const size_t& totalRays,
     const std::vector<float>& sinogram,
-    const float& totalWeightSum) {
+    const float& totalWeightSum,
+    double phantomNorm,
+    double& relativeErrorNorm) {
 
     size_t imageSize = IMAGE_WIDTH * IMAGE_HEIGHT;
 
@@ -77,47 +121,17 @@ void cimminoReconstruct(int maxIterations,
                 reconstructedVector[index] += scalar * weight;
             }
         }
+
+        // Check for convergence every 50 iterations
+        if ((iter + 1) % 50 == 0) {
+            relativeErrorNorm = calculateErrorNorm(phantom, reconstructedVector, phantomNorm);
+            if (relativeErrorNorm < 1e-2) {
+                std::cout << "Converged after " << (iter + 1) << " iterations with relative error norm: " << relativeErrorNorm << std::endl;
+                break;
+            }
+        }
     }
     std::cout << "Reconstruction for " << maxIterations << " iterations complete." << std::endl;
-}
-
-/**
- * @brief Calculate the error norm between the phantom and the reconstructed image.
- * @param phantom The original phantom image as a flat vector.
- * @param approximation The reconstructed image as a flat vector.
- * @return The L2 norm of the error between the phantom and the approximation.
- */
-double calculateErrorNorm(std::vector<float>& phantom, std::vector<float>& approximation) {
-    if (phantom.size() != approximation.size()) {
-        std::cerr << "Error: Vectors must be of the same size to calculate error norm." << std::endl;
-        return -1.0f;
-    }
-    std::vector<float> A = approximation;
-    std::vector<float> P = phantom;
-
-    // Flip phantom vertically to match orientation
-    for (size_t y = 0; y < IMAGE_HEIGHT / 2; ++y) {
-        for (size_t x = 0; x < IMAGE_WIDTH; ++x) {
-            std::swap(P[y * IMAGE_WIDTH + x], P[(IMAGE_HEIGHT - 1 - y) * IMAGE_WIDTH + x]);
-        }
-    }
-
-    // Transpose approximation
-    for (size_t y = 0; y < IMAGE_HEIGHT; ++y) {
-        for (size_t x = y + 1; x < IMAGE_WIDTH; ++x) {
-            std::swap(A[y * IMAGE_WIDTH + x], A[x * IMAGE_WIDTH + y]);
-        }
-    }
-
-    // Compute L2 norm of the difference
-    double sse = 0.0;
-    for (size_t i = 0; i < IMAGE_WIDTH * IMAGE_HEIGHT; ++i) {
-        double d = (double)A[i] - (double)P[i];
-        sse += d * d;
-    }
-    double norm = std::sqrt(sse);
-    std::cout << "Sum of Squared Errors (SSE): " << norm << std::endl;
-    return norm;
 }
 
 int main(int argc, const char* argv[]) {
@@ -131,15 +145,14 @@ int main(int argc, const char* argv[]) {
         return 1;
     }
 
-    // Default value
     int numIterations = 100;
 
     if (argc > 1) {
-        numIterations = std::atoi(argv[1]); // Convert the first argument to an integer
+        numIterations = std::atoi(argv[1]);
     }
 
     // Set geometry parameters
-    auto numDetectors = static_cast<int>(std::ceil(2 * std::sqrt(2) * IMAGE_WIDTH));
+    auto numDetectors = static_cast<uint32_t>(std::ceil(2 * std::sqrt(2) * IMAGE_WIDTH));
 
     Geometry geom = { IMAGE_WIDTH,  IMAGE_HEIGHT, NUM_ANGLES, numDetectors };
 
@@ -150,14 +163,14 @@ int main(int argc, const char* argv[]) {
     SparseMatrix projector;
 
     // Load projection matrix from file
-    if (!loadSparseMatrixBinary(basePath + "data/projection_256_astra.bin", projector, header, totalRays)) {
+    if (!loadSparseMatrixBinary(basePath + "data/projection_256.bin", projector, header, totalRays)) {
         std::cerr << "Failed to load sparse projection matrix." << std::endl;
         return -1;
     }
 
     // Load sinogram from file
     std::vector<float> sinogram(totalRays, 0.0f);
-    if (!loadSinogram(basePath + "data/sinogram_256.bin", sinogram, totalRays)) {
+    if (!loadSinogram(basePath + "data/sinogram_256.txt", sinogram)) {
         std::cerr << "Failed to load sinogram." << std::endl;
         return -1;
     }
@@ -169,15 +182,26 @@ int main(int argc, const char* argv[]) {
         return -1;
     }
 
+    // Flip phantom vertically to match orientation
+    for (size_t y = 0; y < IMAGE_HEIGHT / 2; ++y) {
+        for (size_t x = 0; x < IMAGE_WIDTH; ++x) {
+            std::swap(phantom[y * IMAGE_WIDTH + x], phantom[(IMAGE_HEIGHT - 1 - y) * IMAGE_WIDTH + x]);
+        }
+    }
+
+    // Precompute phantom norm for error calculation
+    double phantomNorm = 0.0;
+    precomputePhantomNorm(phantom, phantomNorm);
+
     // Compute row weights and total weight sum
     float totalWeightSum = 0.0f;
     computeTotalWeight(projector, totalRays, totalWeightSum);
 
     // Reconstruct image and time execution
     std::vector<float> reconstructedImage(IMAGE_WIDTH * IMAGE_HEIGHT, 0.0f);
-
+    double relativeErrorNorm = 0.0;
     auto totalReconstructTime = timeMethod_ms([&]() {
-        cimminoReconstruct(numIterations, projector, header, reconstructedImage, totalRays, sinogram, totalWeightSum);
+        cimminoReconstruct(numIterations, projector, header, reconstructedImage, phantom, totalRays, sinogram, totalWeightSum, phantomNorm, relativeErrorNorm);
         });
 
     std::cout << "Total reconstruction time (ms): " << totalReconstructTime << std::endl;
@@ -185,13 +209,10 @@ int main(int argc, const char* argv[]) {
     // Save reconstructed image to file
     std::string imageSaveFileName = basePath + "data/image_seq_" + std::to_string(numIterations) + ".txt";
 
-    // Calculate error norm between phantom and reconstruction
-    double errorNorm = calculateErrorNorm(phantom, reconstructedImage);
-
     // Save image to txt file for viewing 
     saveImage(imageSaveFileName, reconstructedImage, geom.imageWidth, geom.imageHeight);
 
     // Log performance
-    logPerformance("Sequential", geom, numIterations, totalReconstructTime, errorNorm, basePath + "logs/performance_log.csv");
+    logPerformance("Sequential", geom, numIterations, totalReconstructTime, relativeErrorNorm, basePath + "logs/performance_log.csv");
 }
 

@@ -91,7 +91,7 @@ void cimminoReconstruct(int numIterations,
     std::vector<float> residuals(totalRays, 0.0f);
     std::vector<float> localX(imageSize, 0.0f);
 
-    for (int iter = 0; iter < numIterations; ++iter) {
+    for (size_t i = 0; i < numIterations; ++i) {
         // Clear residuals and local update vector
         std::fill(residuals.begin(), residuals.end(), 0.0f);
 
@@ -122,7 +122,7 @@ void cimminoReconstruct(int numIterations,
             float residual = residuals[r];
             float scalar = (2.0f / totalWeightSum) * residual;
 
-            for (int i = rowStart; i < rowEnd; ++i) {
+            for (size_t i = rowStart; i < rowEnd; ++i) {
                 int   pixelIndex = projector.cols[i];
                 float contribution = scalar * projector.vals[i];
 #pragma omp atomic
@@ -136,10 +136,10 @@ void cimminoReconstruct(int numIterations,
             x[i] += localX[i];
         }
         // Check for convergence every 50 iterations
-        if ((iter + 1) % 50 == 0) {
+        if ((i + 1) % 50 == 0) {
             relativeErrorNorm = calculateErrorNorm(phantom, x, phantomNorm);
             if (relativeErrorNorm < 1e-2) {
-                std::cout << "Converged after " << (iter + 1) << " iterations with relative error norm: " << relativeErrorNorm << std::endl;
+                std::cout << "Converged after " << (i + 1) << " iterations with relative error norm: " << relativeErrorNorm << std::endl;
                 break;
             }
         }
@@ -158,7 +158,6 @@ int main(int argc, const char* argv[]) {
         std::cerr << "Error: " << e.what() << std::endl;
         return 1;
     }
-
 
     int numIterations = 100;
     if (argc > 1) {
@@ -192,7 +191,7 @@ int main(int argc, const char* argv[]) {
         std::cerr << "Failed to load phantom." << std::endl;
         return -1;
     }
-    // Flip P vertically to align with A
+    // Flip phantom vertically to align with A
     for (size_t y = 0; y < IMAGE_HEIGHT / 2; ++y) {
         for (size_t x = 0; x < IMAGE_WIDTH; ++x) {
             std::swap(phantom[y * IMAGE_WIDTH + x], phantom[(IMAGE_HEIGHT - 1 - y) * IMAGE_WIDTH + x]);
@@ -205,8 +204,9 @@ int main(int argc, const char* argv[]) {
 
     float totalWeightSum = 0.0f;
     computeTotalWeight(projector, totalRays, totalWeightSum);
-    double relativeErrorNorm = 0.0;
+
     // Reconstruct image and time execution
+    double relativeErrorNorm = 0.0;
     std::vector<float> reconstructed(IMAGE_WIDTH * IMAGE_HEIGHT, 0.0f);
     double totalReconstructTime = timeMethod_ms([&]() {
         cimminoReconstruct(numIterations, projector, header, reconstructed, totalRays, sinogram, phantom, totalWeightSum, phantomNorm, relativeErrorNorm);
