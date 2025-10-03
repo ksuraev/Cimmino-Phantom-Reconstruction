@@ -5,6 +5,7 @@
  * This class encapsulates the initialisation and management of a Metal device,
  * command queue, and library. It provides methods to access these components.
  */
+
 #ifndef METALCONTEXT_HPP
 #define METALCONTEXT_HPP
 #include <Metal/Metal.hpp>
@@ -48,7 +49,6 @@ public:
         device->release();
     }
 
-    /* Getters */
     MTL::Device* getDevice() const { return device; }
     MTL::CommandQueue* getCommandQueue() const { return commandQueue; }
     MTL::Library* getLibrary() const { return library; }

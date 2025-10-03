@@ -88,7 +88,7 @@ void MTLComputeEngine::copyBufferToTexture(MTL::CommandBuffer *cmdBuffer, MTL::B
     blitEncoder->endEncoding();
 }
 
-void MTLComputeEngine::generateProjectionMatrix(const std::string &projectionFileName) {
+void MTLComputeEngine::loadProjectionMatrix(const std::string &projectionFileName) {
     // Load projection matrix from binary file - generated using ASTRA Toolbox
     SparseMatrixHeader header;
     SparseMatrix matrix;
@@ -158,11 +158,10 @@ void MTLComputeEngine::computeSinogram(std::vector<float> &phantomData) {
     MTL::Function *computeSinogram = createKernelFn("computeSinogram", defaultLibrary);
     MTL::ComputePipelineState *scanPipeline = createComputePipeline(computeSinogram);
 
+    // Encode and dispatch compute kernel
     auto cmdBuffer = commandQueue->commandBuffer();
     auto encoder = cmdBuffer->computeCommandEncoder();
-
-    // Set arguments for scan kernel
-    encoder->setBuffer(phantomBuffer, 0, 0);
+    l encoder->setBuffer(phantomBuffer, 0, 0);
     encoder->setBuffer(offsetsBuffer, 0, 1);
     encoder->setBuffer(colsBuffer, 0, 2);
     encoder->setBuffer(valsBuffer, 0, 3);
@@ -264,10 +263,9 @@ void MTLComputeEngine::normaliseTexture(MTL::Texture *texture, float maxValue) {
     auto normaliseFn = createKernelFn("normaliseKernel", defaultLibrary);
     MTL::ComputePipelineState *normalisePipeline = createComputePipeline(normaliseFn);
 
+    // Encode normalise kernel
     auto cmdBuffer = commandQueue->commandBuffer();
     auto encoder = cmdBuffer->computeCommandEncoder();
-
-    // Set pipeline and args
     encoder->setComputePipelineState(normalisePipeline);
     encoder->setTexture(texture, 0);
     encoder->setBytes(&maxValue, sizeof(float), 0);
@@ -288,7 +286,8 @@ void MTLComputeEngine::normaliseTexture(MTL::Texture *texture, float maxValue) {
 std::chrono::duration<double, std::milli> MTLComputeEngine::reconstructImage(int numIterations,
                                                                              double &relativeErrorNorm) {
     auto startTimeTotal = std::chrono::high_resolution_clock::now();
-    // Initialise reconstruction and update functions
+
+    // Initialise kernel functions and pipelines
     auto cimminoFn = createKernelFn("cimminosReconstruction", defaultLibrary);
     auto applyUpdateFn = createKernelFn("applyUpdate", defaultLibrary);
     auto computeDifferenceFn = createKernelFn("computeRelativeDifference", defaultLibrary);
@@ -303,7 +302,6 @@ std::chrono::duration<double, std::milli> MTLComputeEngine::reconstructImage(int
     // Create buffers
     reconstructedBuffer = createBuffer(imageSize * sizeof(float), MTL::ResourceStorageModeShared);
     auto updateBuffer = createBuffer(imageSize * sizeof(float), MTL::ResourceStorageModeShared);
-
     auto differenceSumBuffer = createBuffer(sizeof(float), MTL::ResourceStorageModeShared);
 
     // Initialise reconstructed image to zero
@@ -381,10 +379,8 @@ std::chrono::duration<double, std::milli> MTLComputeEngine::reconstructImage(int
     std::cout << "Reconstruction time for " << numIterations << " iterations " << totalReconstructTime.count() << " ms"
               << std::endl;
 
-    // Create texture for reconstructed image
-    reconstructedTexture = createTexture(width, height, MTL::PixelFormatR32Float, MTL::TextureUsageShaderRead);
-
     // Copy reconstructed buffer into texture using blit encoder
+    reconstructedTexture = createTexture(width, height, MTL::PixelFormatR32Float, MTL::TextureUsageShaderRead);
     cmdBuffer = commandQueue->commandBuffer();
     copyBufferToTexture(cmdBuffer, reconstructedBuffer, reconstructedTexture, width, height);
 

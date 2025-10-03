@@ -27,12 +27,11 @@ public:
    */
   ~MTLComputeEngine();
 
-
   /**
    * @brief Generate the projection matrix, calculate the total row weight sum,
    * and upload the matrix data to Metal buffers.
    */
-  void generateProjectionMatrix(const std::string& projectionFileName);
+  void loadProjectionMatrix(const std::string& projectionFileName);
 
   /**
    * @brief Perform the CT scan simulation to generate the sinogram from the phantom data.
