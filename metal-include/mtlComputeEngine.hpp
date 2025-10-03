@@ -38,7 +38,7 @@ public:
    * @brief Perform the CT scan simulation to generate the sinogram from the phantom data.
    * @param phantomData The input phantom image data as a flat vector.
    */
-  void performScan(std::vector<float>& phantomData);
+  void computeSinogram(std::vector<float>& phantomData);
 
   /**
    * @brief Reconstruct the image using Cimmino's algorithm implemented in Metal.
@@ -64,8 +64,6 @@ private:
   MTL::Buffer* colsBuffer;
   MTL::Buffer* valsBuffer;
   MTL::Buffer* sinogramBuffer;
-  MTL::Buffer* maxValSinogramBuffer;
-  MTL::Buffer* maxValReconBuffer;
   MTL::Buffer* reconstructedBuffer;
   MTL::Buffer* phantomBuffer;
 
@@ -140,13 +138,13 @@ private:
    * @param texture The Metal texture to search for the maximum value.
    * @param maxValBuffer The Metal buffer to store the maximum value found.
    */
-  void findMaxValInTexture(MTL::Texture* texture, MTL::Buffer*& maxValbuffer);
+  void findMaxValInTexture(MTL::Texture* texture, float& maxValue);
 
   /**
    * @brief Normalise a Metal texture using the maximum value stored in a buffer.
    * @param texture The Metal texture to be normalised.
    * @param maxValBuffer The Metal buffer containing the maximum value for normalisation.
    */
-  void normaliseTexture(MTL::Texture* texture, MTL::Buffer*& maxValBuffer);
+  void normaliseTexture(MTL::Texture* texture, float maxValue);
 };
 #endif  // MTLCOMPUTEENGINE_HPP

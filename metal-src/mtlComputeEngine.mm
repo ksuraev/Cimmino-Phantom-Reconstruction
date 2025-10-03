@@ -149,20 +149,17 @@ void MTLComputeEngine::initialisePhantom(std::vector<float> &phantomData) {
     }
 }
 
-void MTLComputeEngine::performScan(std::vector<float> &phantomData) {
+void MTLComputeEngine::computeSinogram(std::vector<float> &phantomData) {
     // Initialise phantom
     initialisePhantom(phantomData);
 
     sinogramBuffer = createBuffer(totalRays * sizeof(float), MTL::ResourceStorageModeShared);
 
-    // Load compute sinogram kernel function
     MTL::Function *computeSinogram = createKernelFn("computeSinogram", defaultLibrary);
+    MTL::ComputePipelineState *scanPipeline = createComputePipeline(computeSinogram);
 
     auto cmdBuffer = commandQueue->commandBuffer();
     auto encoder = cmdBuffer->computeCommandEncoder();
-
-    // Create metal scan compute pipeline
-    MTL::ComputePipelineState *scanPipeline = createComputePipeline(computeSinogram);
 
     // Set arguments for scan kernel
     encoder->setBuffer(phantomBuffer, 0, 0);
@@ -192,8 +189,9 @@ void MTLComputeEngine::performScan(std::vector<float> &phantomData) {
     // saveTextureToFile(filePath, sinogramTexture);
 
     // Normalise sinogram texture
-    findMaxValInTexture(sinogramTexture, maxValSinogramBuffer);
-    normaliseTexture(sinogramTexture, maxValSinogramBuffer);
+    float maxSinogramValue = 0.0f;
+    findMaxValInTexture(sinogramTexture, maxSinogramValue);
+    normaliseTexture(sinogramTexture, maxSinogramValue);
 
     /* Uncomment to save normalised sinogram texture to .txt file */
     // std::string normalisedFilePath =
@@ -202,19 +200,15 @@ void MTLComputeEngine::performScan(std::vector<float> &phantomData) {
     // saveTextureToFile(normalisedFilePath, sinogramTexture);
 }
 
-void MTLComputeEngine::findMaxValInTexture(MTL::Texture *texture, MTL::Buffer *&maxValbuffer) {
+void MTLComputeEngine::findMaxValInTexture(MTL::Texture *texture, float &maxValue) {
     if (!texture) {
         std::cerr << "Input texture is null." << std::endl;
         exit(-1);
     }
 
-    // Pass 1 pipeline - find max per thread group
+    // Pass 1 - find max per thread group
     auto maxPerThreadGroupFn = createKernelFn("findMaxPerThreadgroupKernel", defaultLibrary);
     MTL::ComputePipelineState *findMaxPipeline = createComputePipeline(maxPerThreadGroupFn);
-
-    // Pass 2 pipeline - reduce to find final max
-    auto reduceMaxFn = createKernelFn("reduceMaxKernel", defaultLibrary);
-    MTL::ComputePipelineState *reduceMaxPipeline = createComputePipeline(reduceMaxFn);
 
     auto cmdBuffer = commandQueue->commandBuffer();
 
@@ -230,54 +224,40 @@ void MTLComputeEngine::findMaxValInTexture(MTL::Texture *texture, MTL::Buffer *&
     float numTgTotal = numThreadgroups.width * numThreadgroups.height;
 
     // Create intermediate map buffer to hold one max value per threadgroup
-    MTL::Buffer *mapBuffer = createBuffer(numTgTotal * sizeof(float), MTL::ResourceStorageModePrivate);
+    MTL::Buffer *maxValuesBuffer = createBuffer(numTgTotal * sizeof(float), MTL::ResourceStorageModePrivate);
 
-    // Encode pass 1
+    // Encode and dispatch pass 1
     auto p1Encoder = cmdBuffer->computeCommandEncoder();
     p1Encoder->setComputePipelineState(findMaxPipeline);
     p1Encoder->setTexture(sinogramTexture, 0);
-    p1Encoder->setBuffer(mapBuffer, 0, 0);
+    p1Encoder->setBuffer(maxValuesBuffer, 0, 0);
     p1Encoder->setBytes(&numTgTotal, sizeof(float), 1);
     p1Encoder->dispatchThreads(gridSize, threadgroupSize);
     p1Encoder->endEncoding();
-
-    // Pass 2 setup
-    maxValbuffer = device->newBuffer(sizeof(float), MTL::ResourceStorageModeShared);
-
-    // Set result to 0 before encoding
-    auto blitEncoder = cmdBuffer->blitCommandEncoder();
-    blitEncoder->fillBuffer(maxValbuffer, NS::Range(0, sizeof(float)), 0);
-    blitEncoder->endEncoding();
-
-    // Encode pass 2
-    auto p2Encoder = cmdBuffer->computeCommandEncoder();
-    p2Encoder->setComputePipelineState(reduceMaxPipeline);
-    p2Encoder->setBuffer(mapBuffer, 0, 0);
-    p2Encoder->setBuffer(maxValbuffer, 0, 1);
-
-    // Dispatch one thread for each value in the map buffer
-    MTL::Size reduceGridSize = MTL::Size(numTgTotal, 1, 1);
-    NS::UInteger reduceTgSize = reduceMaxPipeline->maxTotalThreadsPerThreadgroup();
-    if (reduceTgSize > numTgTotal) {
-        reduceTgSize = numTgTotal;
-    }
-    MTL::Size reduceThreadgroupSize = MTL::Size(reduceTgSize, 1, 1);
-
-    p2Encoder->dispatchThreads(reduceGridSize, reduceThreadgroupSize);
-    p2Encoder->endEncoding();
-
     cmdBuffer->commit();
     cmdBuffer->waitUntilCompleted();
+
+    // Pass 2: Read back max values buffer to CPU and find max value
+    float *maxValues = static_cast<float *>(maxValuesBuffer->contents());
+    size_t numElements = numTgTotal;
+
+    float maxVal = maxValues[0];
+    for (size_t i = 1; i < numElements; ++i) {
+        if (maxValues[i] > maxVal) {
+            maxVal = maxValues[i];
+        }
+    }
+    maxValue = maxVal;
 }
 
-void MTLComputeEngine::normaliseTexture(MTL::Texture *texture, MTL::Buffer *&maxValBuffer) {
+void MTLComputeEngine::normaliseTexture(MTL::Texture *texture, float maxValue) {
     if (!texture) {
         std::cerr << "Texture to be normalised is null." << std::endl;
         exit(-1);
     }
-    if (!maxValBuffer) {
-        std::cerr << "Max val buffer is null. Cannot normalise texture." << std::endl;
-        exit(-1);
+    if (maxValue == 0.0f) {
+        std::cerr << "Max value is zero, texture will not be normalised." << std::endl;
+        return;
     }
 
     // Initialise normalise kernel
@@ -290,7 +270,7 @@ void MTLComputeEngine::normaliseTexture(MTL::Texture *texture, MTL::Buffer *&max
     // Set pipeline and args
     encoder->setComputePipelineState(normalisePipeline);
     encoder->setTexture(texture, 0);
-    encoder->setBuffer(maxValBuffer, 0, 1);
+    encoder->setBytes(&maxValue, sizeof(float), 0);
 
     // Set grid and threadgroup sizes
     MTL::Size textureGridSize = MTL::Size(texture->width(), texture->height(), 1);
@@ -360,9 +340,6 @@ std::chrono::duration<double, std::milli> MTLComputeEngine::reconstructImage(int
         encoder->setComputePipelineState(applyUpdatePipeline);
         encoder->setBuffer(reconstructedBuffer, 0, 0);
         encoder->setBuffer(updateBuffer, 0, 1);
-        // encoder->setBuffer(phantomBuffer, 0, 2);
-        // encoder->setBuffer(differenceSumBuffer, 0, 3);
-        // encoder->setBuffer(phantomNormBuffer, 0, 4);
         encoder->setBytes(&imageSize, sizeof(uint), 5);
         dispatchThreads(encoder, applyUpdatePipeline, imageSize);
         encoder->endEncoding();
@@ -371,7 +348,7 @@ std::chrono::duration<double, std::milli> MTLComputeEngine::reconstructImage(int
         cmdBuffer->waitUntilCompleted();
 
         // Check for convergence every 50 iterations
-        if ((i + 1) % 50 == 0) {
+        if ((i + 1) % 1 == 0) {
             // Compute relative error norm
             cmdBuffer = commandQueue->commandBuffer();
             encoder = cmdBuffer->computeCommandEncoder();
@@ -404,10 +381,6 @@ std::chrono::duration<double, std::milli> MTLComputeEngine::reconstructImage(int
     std::cout << "Reconstruction time for " << numIterations << " iterations " << totalReconstructTime.count() << " ms"
               << std::endl;
 
-    auto endTimeTotal = std::chrono::high_resolution_clock::now();
-    std::chrono::duration<double, std::milli> totalTime = endTimeTotal - startTimeTotal;
-    std::cout << "Total time including data transfers: " << totalTime.count() << " ms" << std::endl;
-
     // Create texture for reconstructed image
     reconstructedTexture = createTexture(width, height, MTL::PixelFormatR32Float, MTL::TextureUsageShaderRead);
 
@@ -417,6 +390,10 @@ std::chrono::duration<double, std::milli> MTLComputeEngine::reconstructImage(int
 
     cmdBuffer->commit();
     cmdBuffer->waitUntilCompleted();
+
+    auto endTimeTotal = std::chrono::high_resolution_clock::now();
+    std::chrono::duration<double, std::milli> totalTime = endTimeTotal - startTimeTotal;
+    std::cout << "Total time including data transfers: " << totalTime.count() << " ms" << std::endl;
 
     // Save reconstructed texture to file
     std::string imageFileName = basePath + "/metal-data/metal_" + std::to_string(numIterations) + "_" +

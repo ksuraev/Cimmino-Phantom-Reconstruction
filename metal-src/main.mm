@@ -37,7 +37,7 @@ int main(int argc, char **argv) {
         // Compute sinogram for the phantom
         std::vector<float> phantomData =
             loadPhantom(std::string(PROJECT_BASE_PATH) + "/metal-data/" + PHANTOM_FILE, geom);
-        double scanTime = timeMethod_ms([&]() { mtlComputeEngine.performScan(phantomData); });
+        double scanTime = timeMethod_ms([&]() { mtlComputeEngine.computeSinogram(phantomData); });
 
         // Perform Cimmino's reconstruction
         double finalErrorNorm = 0.0;
