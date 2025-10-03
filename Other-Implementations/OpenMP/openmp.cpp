@@ -1,4 +1,8 @@
-// g++-15 -fopenmp -o openmp openmp.cpp ../utilities/Utilities.cpp
+/**
+ * @file openmp.cpp
+ * @brief Implementation of Cimmino's reconstruction algorithm using OpenMP for parallelisation.
+ * Compile with: g++-15 -fopenmp -o openmp openmp.cpp ../utilities/Utilities.cpp
+ */
 
 #include "../include/Utilities.hpp"
 #include <omp.h>
@@ -43,6 +47,7 @@ void precomputePhantomNorm(std::vector<float>& phantom, double& phantomNorm) {
  * @brief Calculate the relative error norm between the phantom and the reconstructed image.
  * @param phantom The original phantom image as a flat vector.
  * @param approximation The reconstructed image as a flat vector.
+ * @param phantomNorm The precomputed L2 norm of the phantom image.
  * @return The L2 norm of the error between the phantom and the approximation.
  * Computed the same as metal kernels to ensure consistency.
  */
@@ -66,14 +71,17 @@ double calculateErrorNorm(std::vector<float>& phantom, std::vector<float>& appro
 }
 
 /**
- * @brief Reconstruct image using Cimmino's algorithm with OpenMP parallelisation.
- * @param numIterations The number of iterations to perform.
- * @param projector The sparse projection matrix.
- * @param header The header information for the sparse matrix.
- * @param x The reconstructed image vector (output).
- * @param totalRays The total number of rays (rows in the sinogram).
- * @param sinogram The input sinogram data.
- * @param totalWeightSum The total sum of row weights.
+ * @brief Perform Cimmino's reconstruction algorithm using OpenMP for parallelization.
+ * @param numIterations Number of iterations to perform.
+ * @param projector Sparse projection matrix in CSR format.
+ * @param header Header information for the sparse matrix.
+ * @param x The image vector to be reconstructed (input and output).
+ * @param totalRays Total number of rays (rows in the sinogram).
+ * @param sinogram The measured sinogram data as a flat vector.
+ * @param phantom The original phantom image for error calculation.
+ * @param totalWeightSum Precomputed total sum of row weights.
+ * @param phantomNorm Precomputed L2 norm of the phantom image.
+ * @param relativeErrorNorm Variable to store the final relative error norm after reconstruction.
  */
 void cimminoReconstruct(int numIterations,
     SparseMatrix& projector,
@@ -169,10 +177,9 @@ int main(int argc, const char* argv[]) {
     Geometry geom = { IMAGE_WIDTH,  IMAGE_HEIGHT, NUM_ANGLES, numDetectors };
     size_t totalRays = static_cast<size_t>(geom.nAngles * geom.nDetectors);
 
+    // Load projection matrix from file
     SparseMatrixHeader header = { 0, 0, 0 };
     SparseMatrix projector;
-
-    // Load projection matrix from file
     if (!loadSparseMatrixBinary(basePath + "data/projection_256.bin", projector, header, totalRays)) {
         std::cerr << "Failed to load sparse projection matrix." << std::endl;
         return -1;
@@ -216,10 +223,7 @@ int main(int argc, const char* argv[]) {
 
     // Save reconstructed image to file
     std::string imageSaveFileName = basePath + "data/image_omp_" + std::to_string(numIterations) + ".txt";
-
     saveImage(imageSaveFileName, reconstructed, geom.imageWidth, geom.imageHeight);
-
-    std::cout << "Relative error norm: " << relativeErrorNorm << std::endl;
 
     // Log performance data
     logPerformance("openmp", geom, numIterations, totalReconstructTime, relativeErrorNorm, basePath + "logs/performance_log.csv");

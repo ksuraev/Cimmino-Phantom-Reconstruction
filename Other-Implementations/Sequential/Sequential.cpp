@@ -9,7 +9,6 @@ constexpr uint32_t IMAGE_WIDTH = 256;
 constexpr uint32_t IMAGE_HEIGHT = 256;
 constexpr uint32_t NUM_ANGLES = 90;
 
-
 /**
  * @brief Compute the squared L2 norm of each row in the sparse matrix and the total weight sum.
  * @param projector Sparse projection matrix in CSR format.
@@ -43,6 +42,7 @@ void precomputePhantomNorm(std::vector<float>& phantom, double& phantomNorm) {
  * @brief Calculate the error norm between the phantom and the reconstructed image.
  * @param phantom The original phantom image as a flat vector.
  * @param approximation The reconstructed image as a flat vector.
+ * @param phantomNorm The precomputed L2 norm of the phantom.
  * @return The L2 norm of the error between the phantom and the approximation.
  * Computed the same as metal kernels to ensure consistency.
  */
@@ -66,15 +66,17 @@ double calculateErrorNorm(std::vector<float>& phantom, std::vector<float>& appro
 }
 
 /**
- * @brief Perform Cimmino reconstruction.
- * @param maxIterations Number of iterations to perform.
- * @param projector Sparse projection matrix.
- * @param header Header information for the sparse matrix.
- * @param totalRays Total number of rays (rows in the sinogram).
- * @param sinogram Input sinogram data.
- * @param totalWeightSum Total sum of row weights.
- * @return Reconstructed image as a flat vector.
- * Computed the same as metal kernels to ensure consistency.
+ * @brief Perform Cimmino's algorithm for CT image reconstruction.
+ * @param maxIterations The maximum number of iterations to perform.
+ * @param projector The sparse projection matrix.
+ * @param header The header information for the sparse matrix.
+ * @param reconstructedVector The reconstructed image vector (output).
+ * @param phantom The original phantom image for error calculation.
+ * @param totalRays The total number of rays (rows in the sinogram).
+ * @param sinogram The input sinogram data.
+ * @param totalWeightSum The total sum of row weights.
+ * @param phantomNorm The precomputed L2 norm of the phantom image.
+ * @param relativeErrorNorm Variable to store the relative error norm after reconstruction.
  */
 void cimminoReconstruct(int maxIterations,
     const SparseMatrix& projector,
@@ -153,16 +155,12 @@ int main(int argc, const char* argv[]) {
 
     // Set geometry parameters
     auto numDetectors = static_cast<uint32_t>(std::ceil(2 * std::sqrt(2) * IMAGE_WIDTH));
-
     Geometry geom = { IMAGE_WIDTH,  IMAGE_HEIGHT, NUM_ANGLES, numDetectors };
-
     size_t totalRays = static_cast<size_t>(geom.nAngles * geom.nDetectors);
 
-    // Sparse matrix parameters
+    // Load projection matrix from file
     SparseMatrixHeader header = { 0, 0, 0 };
     SparseMatrix projector;
-
-    // Load projection matrix from file
     if (!loadSparseMatrixBinary(basePath + "data/projection_256.bin", projector, header, totalRays)) {
         std::cerr << "Failed to load sparse projection matrix." << std::endl;
         return -1;
@@ -208,8 +206,6 @@ int main(int argc, const char* argv[]) {
 
     // Save reconstructed image to file
     std::string imageSaveFileName = basePath + "data/image_seq_" + std::to_string(numIterations) + ".txt";
-
-    // Save image to txt file for viewing 
     saveImage(imageSaveFileName, reconstructedImage, geom.imageWidth, geom.imageHeight);
 
     // Log performance
