@@ -10,3 +10,4 @@ residuals.nb.html
 residuals.Rmd
 sinogram_256_normalised.txt
 sinogram_512_normalised.txt
+*.txt
