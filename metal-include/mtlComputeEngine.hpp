@@ -52,12 +52,38 @@ public:
   MTL::Texture* getSinogramTexture() const { return sinogramTexture; }
   MTL::Texture* getOriginalPhantomTexture() const { return originalPhantomTexture; }
 
-private:
+protected:
   /* METAL RESOURCES */
   MTL::Device* device;
   MTL::Library* defaultLibrary;
   MTL::CommandQueue* commandQueue;
+  Geometry geom;
 
+  /**
+ * @brief Create a Metal texture with specified width, height, pixel format, and usage.
+ * @param width The width of the texture.
+ * @param height The height of the texture.
+ * @param pixelFormat The pixel format of the texture.
+ * @param usage The texture usage options.
+ * @return The created Metal texture.
+ */
+
+  MTL::Texture* createTexture(uint width, uint height, MTL::PixelFormat pixelFormat, MTL::TextureUsage usage);
+  /**
+   * @brief Find the maximum value in a Metal texture and store it in a buffer.
+   * @param texture The Metal texture to search for the maximum value.
+   * @param maxValBuffer The Metal buffer to store the maximum value found.
+   */
+  void findMaxValInTexture(MTL::Texture* texture, float& maxValue);
+
+  /**
+   * @brief Normalise a Metal texture using the maximum value stored in a buffer.
+   * @param texture The Metal texture to be normalised.
+   * @param maxValBuffer The Metal buffer containing the maximum value for normalisation.
+   */
+  void normaliseTexture(MTL::Texture* texture, float maxValue);
+
+private:
   /* BUFFERS */
   MTL::Buffer* offsetsBuffer;
   MTL::Buffer* colsBuffer;
@@ -71,13 +97,10 @@ private:
   MTL::Texture* sinogramTexture;
   MTL::Texture* originalPhantomTexture;
 
-
-  Geometry geom;
   uint totalRays;
   size_t totalNonZeroElements;
   float totalWeightSum;
   double phantomNorm;
-  std::string basePath = PROJECT_BASE_PATH;
 
   /**
    * @brief Create a compute pipeline state for a given kernel function.
@@ -95,15 +118,6 @@ private:
    */
   MTL::Buffer* createBuffer(size_t size, MTL::ResourceOptions options, void* data);
 
-  /**
-   * @brief Create a Metal texture with specified width, height, pixel format, and usage.
-   * @param width The width of the texture.
-   * @param height The height of the texture.
-   * @param pixelFormat The pixel format of the texture.
-   * @param usage The texture usage options.
-   * @return The created Metal texture.
-   */
-  MTL::Texture* createTexture(uint width, uint height, MTL::PixelFormat pixelFormat, MTL::TextureUsage usage);
 
   /**
    * @brief Calculate grid and thread group sizes and dispatch threads for a compute kernel.
@@ -131,19 +145,5 @@ private:
    * @param phantomData The input phantom image data as a flat vector.
    */
   void initialisePhantom(std::vector<float>& phantomData);
-
-  /**
-   * @brief Find the maximum value in a Metal texture and store it in a buffer.
-   * @param texture The Metal texture to search for the maximum value.
-   * @param maxValBuffer The Metal buffer to store the maximum value found.
-   */
-  void findMaxValInTexture(MTL::Texture* texture, float& maxValue);
-
-  /**
-   * @brief Normalise a Metal texture using the maximum value stored in a buffer.
-   * @param texture The Metal texture to be normalised.
-   * @param maxValBuffer The Metal buffer containing the maximum value for normalisation.
-   */
-  void normaliseTexture(MTL::Texture* texture, float maxValue);
 };
 #endif  // MTLCOMPUTEENGINE_HPP
