@@ -5,9 +5,9 @@ constexpr int IMAGE_WIDTH = 256;
 constexpr int IMAGE_HEIGHT = 256;
 constexpr int NUM_ANGLES = 90;
 
-constexpr const char PROJECTION_MATRIX_FILE[] = "projection_256.bin";
-constexpr const char PHANTOM_FILE[] = "phantom_256.txt";
-constexpr const char LOG_FILE[] = "metal_performance_log.csv";
+constexpr const char PROJECTION_MATRIX_FILE[] = "/metal-data/projection_256.bin";
+constexpr const char PHANTOM_FILE[] = "/metal-data/phantom_256.txt";
+constexpr const char LOG_FILE[] = "/metal-logs/metal_performance_log.csv";
 
 int main(int argc, char **argv) {
     if (IMAGE_WIDTH != IMAGE_HEIGHT) {
@@ -33,9 +33,9 @@ int main(int argc, char **argv) {
         double projectionTime = timeMethod_ms([&]() { mtlComputeEngine.loadProjectionMatrix(PROJECTION_MATRIX_FILE); });
 
         // Compute sinogram for the phantom
-        std::vector<float> phantomData =
-            loadPhantom(std::string(PROJECT_BASE_PATH) + "/metal-data/" + PHANTOM_FILE, geom);
-        double scanTime = timeMethod_ms([&]() { mtlComputeEngine.computeSinogram(phantomData); });
+        std::vector<float> phantomData = loadPhantom(std::string(PROJECT_BASE_PATH) + PHANTOM_FILE, geom);
+        double scanTime = 0.0;
+        mtlComputeEngine.computeSinogram(phantomData, scanTime);
 
         // Perform Cimmino's reconstruction
         double finalErrorNorm = 0.0;
@@ -50,7 +50,7 @@ int main(int argc, char **argv) {
         mtlRenderEngine.render();
 
         logPerformance(geom, numIterations, projectionTime, scanTime, totalReconstructTime, finalErrorNorm,
-                       std::string(PROJECT_BASE_PATH) + "/metal-logs/" + LOG_FILE);
+                       std::string(PROJECT_BASE_PATH) + LOG_FILE);
 
         pPool->release();
     } catch (const std::exception &e) {

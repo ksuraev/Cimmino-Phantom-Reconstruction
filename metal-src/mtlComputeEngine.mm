@@ -92,7 +92,7 @@ void MTLComputeEngine::loadProjectionMatrix(const std::string &projectionFileNam
     // Load projection matrix from binary file - generated using ASTRA Toolbox
     SparseMatrixHeader header;
     SparseMatrix matrix;
-    loadSparseMatrixBinary(std::string(PROJECT_BASE_PATH) + "/metal-data/" + projectionFileName, matrix, header);
+    loadSparseMatrixBinary(std::string(PROJECT_BASE_PATH) + projectionFileName, matrix, header);
 
     totalNonZeroElements = header.num_non_zero;
 
@@ -149,10 +149,12 @@ void MTLComputeEngine::initialisePhantom(std::vector<float> &phantomData) {
     }
 }
 
-void MTLComputeEngine::computeSinogram(std::vector<float> &phantomData) {
+void MTLComputeEngine::computeSinogram(std::vector<float> &phantomData, double &scanTimeMs) {
     // Initialise phantom - flip vertically, load into buffer and texture, compute norm
     initialisePhantom(phantomData);
 
+    // Start timing scan
+    auto startTime = std::chrono::high_resolution_clock::now();
     sinogramBuffer = createBuffer(totalRays * sizeof(float), MTL::ResourceStorageModeShared);
 
     MTL::Function *computeSinogram = createKernelFn("computeSinogram", defaultLibrary);
@@ -175,12 +177,14 @@ void MTLComputeEngine::computeSinogram(std::vector<float> &phantomData) {
     // Copy sinogram buffer into texture
     sinogramTexture = createTexture(geom.nDetectors, geom.nAngles, MTL::PixelFormatR32Float,
                                     MTL::TextureUsageShaderRead | MTL::TextureUsageShaderWrite);
-
     copyBufferToTexture(cmdBuffer, sinogramBuffer, sinogramTexture, geom.nDetectors, geom.nAngles);
 
     // Commit and wait only once everything is encoded
     cmdBuffer->commit();
     cmdBuffer->waitUntilCompleted();
+    auto endTime = std::chrono::high_resolution_clock::now();
+    scanTimeMs = std::chrono::duration<double, std::milli>(endTime - startTime).count();
+    std::cout << "Scan time: " << scanTimeMs << " ms" << std::endl;
 
     /* Uncomment to save non-normalised sinogram buffer to .txt file */
     // std::string filePath =
