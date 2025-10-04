@@ -1,6 +1,7 @@
 // Metal Shading Language (MSL) code for GPU image reconstruction and processing
 #include <metal_stdlib>
 #include <simd/simd.h>
+#include <metal_simdgroup>
 using namespace metal;
 
 // Geometry structure to hold imaging/scanner parameters
@@ -11,31 +12,46 @@ struct Geometry {
   uint nDetectors;
 };
 
-
 // Calculate the sinogram by projecting the phantom image
 // Simulate the projection of rays through the image/phantom
-kernel void computeSinogram(const device float* phantom [[buffer(0)]],
+kernel void computeSinogram(const device float* phantom       [[buffer(0)]],
                             const device int* offsetsBuffer_A [[buffer(1)]],
-                            const device int* colsBuffer_A [[buffer(2)]],
-                            const device float* valsBuffer_A [[buffer(3)]],
-                            device float* sinogram [[buffer(4)]],
-                            constant uint& numRays [[buffer(5)]],
-                            uint gid [[thread_position_in_grid]]) {
-    // Each thread computes one row of the sinogram
+                            const device int* colsBuffer_A    [[buffer(2)]],
+                            const device float* valsBuffer_A  [[buffer(3)]],
+                            device float* sinogram            [[buffer(4)]],
+                            constant uint& numRays            [[buffer(5)]],
+                            uint gid                          [[thread_position_in_grid]]) {
     uint rayIndex = gid;
     if (rayIndex >= numRays) return;
 
-    // Get row start and end for this ray
     int rowStart = offsetsBuffer_A[rayIndex];
-    int rowEnd = offsetsBuffer_A[rayIndex + 1];
+    int rowEnd   = offsetsBuffer_A[rayIndex + 1];
 
-    // Compute the dot product for this ray
     float dotProduct = 0.0f;
-    for (int i = rowStart; i < rowEnd; ++i) {
-        dotProduct += valsBuffer_A[i] * phantom[colsBuffer_A[i]];
+
+    // Vectorised loop processing 4 elements at a time
+    int i = 0;
+    for (; i + 3 < rowEnd - rowStart; i += 4) {
+        int base = rowStart + i;
+
+        float4 phantomVals = float4(phantom[colsBuffer_A[base]],
+                                    phantom[colsBuffer_A[base + 1]],
+                                    phantom[colsBuffer_A[base + 2]],
+                                    phantom[colsBuffer_A[base + 3]]);
+        float4 coeffs = float4(valsBuffer_A[base],
+                               valsBuffer_A[base + 1],
+                               valsBuffer_A[base + 2],
+                               valsBuffer_A[base + 3]);
+
+        dotProduct += dot(phantomVals, coeffs);
     }
 
-    // Store the result in the sinogram buffer
+    // Remainder loop for leftover elements
+    for (; i < rowEnd - rowStart; ++i) {
+        int idx = rowStart + i;
+        dotProduct += valsBuffer_A[idx] * phantom[colsBuffer_A[idx]];
+    }
+
     sinogram[rayIndex] = dotProduct;
 }
 
