@@ -110,3 +110,6 @@ metal-cpp/
 metal-logs/incorrectnorm_performance_log.csv
 Other-Implementations/logs/incorrectnorm_performance_log.csv
 *.html
+notes.txt
+metal-data/projection_1024.bin
+projection_1024.bin
