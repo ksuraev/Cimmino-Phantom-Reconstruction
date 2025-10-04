@@ -2,7 +2,7 @@
 
 This repository features a Metal-Cpp implementation of Cimmino's algorithm for image reconstruction. The projection matrix is generated using Astra-Toolbox, and the sinogram and reconstructed image are computed in Metal Shaders. The implementation reconstructs a Shepp-Logan phantom from its sinogram. Sequential and OpenMP versions are provided for comparison.
 
-![Reconstructions](Doc/Images/reconstruction_titlepage.png)
+![Reconstructions](Doc/Images/reconstructions.png)
 
 Image reconstruction is a fundamental task in Computed Tomography (CT) and other imaging modalities. Cimmino's algorithm simultaneously reflects the current estimate across all hyperplanes defined by the linear equations, generating a sequence of approximations that converge to a solution. The nature of Cimmino's algorithm lends itself well to parallelisation.
 
@@ -74,7 +74,7 @@ The sequential and OpenMP versions can be compiled with g++ or clang++.
 2. Alternatively, you can compile and run the sequential version directly:
    ```bash
    cd Sequential
-    g++-15 -o sequential sequential.cpp ../utilities/Utilities.cpp
+    clang++ -o sequential sequential.cpp ../utilities/Utilities.cpp
     ./sequential [num_iterations]
    ```
 3. The reconstructed image will be saved in the `data/` directory. To view the reconstructed images, use the `view_reconstructed_image.py` script in the `data/` directory.
