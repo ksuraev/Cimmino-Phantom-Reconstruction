@@ -150,7 +150,7 @@ void MTLComputeEngine::initialisePhantom(std::vector<float> &phantomData) {
 }
 
 void MTLComputeEngine::computeSinogram(std::vector<float> &phantomData) {
-    // Initialise phantom
+    // Initialise phantom - flip vertically, load into buffer and texture, compute norm
     initialisePhantom(phantomData);
 
     sinogramBuffer = createBuffer(totalRays * sizeof(float), MTL::ResourceStorageModeShared);
@@ -188,21 +188,9 @@ void MTLComputeEngine::computeSinogram(std::vector<float> &phantomData) {
     // saveTextureToFile(filePath, sinogramTexture);
 
     // Normalise sinogram texture
-    auto startTime = std::chrono::high_resolution_clock::now();
     float maxSinogramValue = 0.0f;
     findMaxValInTexture(sinogramTexture, maxSinogramValue);
-    std::cout << "Max sinogram value before normalisation: " << maxSinogramValue << std::endl;
     normaliseTexture(sinogramTexture, maxSinogramValue);
-    auto endTime = std::chrono::high_resolution_clock::now();
-    std::chrono::duration<double, std::milli> normaliseTime = endTime - startTime;
-    std::cout << "Sinogram normalisation time: " << normaliseTime.count() << " ms" << std::endl;
-    // Print max value for verification
-
-    /* Uncomment to save normalised sinogram texture to .txt file */
-    // std::string normalisedFilePath =
-    //     std::string(PROJECT_BASE_PATH) + "/metal-data/sinogram_" + std::to_string(geom.imageWidth) +
-    //     "_norm.txt";
-    // saveTextureToFile(normalisedFilePath, sinogramTexture);
 }
 
 void MTLComputeEngine::findMaxValInTexture(MTL::Texture *texture, float &maxValue) {
@@ -211,13 +199,13 @@ void MTLComputeEngine::findMaxValInTexture(MTL::Texture *texture, float &maxValu
         exit(-1);
     }
 
-    // Pass 1 - find max per thread group
+    // Find max value in texture using atomic operations in Metal
     auto maxPerThreadGroupFn = createKernelFn("findMaxInTexture", defaultLibrary);
     MTL::ComputePipelineState *findMaxPipeline = createComputePipeline(maxPerThreadGroupFn);
 
     auto cmdBuffer = commandQueue->commandBuffer();
 
-    // Query GPU capabilities
+    // Query GPU for thread execution parameters
     NS::UInteger maxThreadsPerThreadgroup = findMaxPipeline->maxTotalThreadsPerThreadgroup();
     NS::UInteger threadExecutionWidth = findMaxPipeline->threadExecutionWidth();
 
@@ -226,21 +214,16 @@ void MTLComputeEngine::findMaxValInTexture(MTL::Texture *texture, float &maxValu
     NS::UInteger tgHeight = std::min(maxThreadsPerThreadgroup / tgWidth, texture->height());
     MTL::Size threadgroupSize = MTL::Size(tgWidth, tgHeight, 1);
 
-    std::cout << "Threadgroup size: " << threadgroupSize.width << "x" << threadgroupSize.height << std::endl;
-
     MTL::Size gridSize = MTL::Size(texture->width(), texture->height(), 1);
     MTL::Size numThreadgroups = MTL::Size((gridSize.width + threadgroupSize.width - 1) / threadgroupSize.width,
                                           (gridSize.height + threadgroupSize.height - 1) / threadgroupSize.height, 1);
 
-    std::cout << "Grid size: " << gridSize.width << "x" << gridSize.height << std::endl;
-    std::cout << "Number of threadgroups: " << numThreadgroups.width << "x" << numThreadgroups.height << std::endl;
-
-    // Create intermediate map buffer to hold one max value per threadgroup
+    // Buffer to store max value updated atomically
     MTL::Buffer *maxValuesBuffer = device->newBuffer(sizeof(uint), MTL::ResourceStorageModeShared);
     uint *maxValuePtr = static_cast<uint *>(maxValuesBuffer->contents());
     *maxValuePtr = 0;
 
-    // Encode and dispatch pass 1
+    // Encode and dispatch
     auto p1Encoder = cmdBuffer->computeCommandEncoder();
     p1Encoder->setComputePipelineState(findMaxPipeline);
     p1Encoder->setTexture(texture, 0);
@@ -250,9 +233,9 @@ void MTLComputeEngine::findMaxValInTexture(MTL::Texture *texture, float &maxValu
     cmdBuffer->commit();
     cmdBuffer->waitUntilCompleted();
 
+    // Read back max value from buffer
     uint maxValueUint = *maxValuePtr;
-    float maxFloatValue = reinterpret_cast<float &>(maxValueUint);  // Convert back to float
-    std::cout << "Maximum value in texture: " << maxFloatValue << std::endl;
+    float maxFloatValue = reinterpret_cast<float &>(maxValueUint);
     maxValue = maxFloatValue;
 }
 
@@ -353,11 +336,11 @@ std::chrono::duration<double, std::milli> MTLComputeEngine::reconstructImage(int
         cmdBuffer->waitUntilCompleted();
 
         // Check for convergence every 50 iterations
-        if ((i + 1) % 1 == 0) {
-            // Compute relative error norm
+        if ((i + 1) % 50 == 0) {
             cmdBuffer = commandQueue->commandBuffer();
             encoder = cmdBuffer->computeCommandEncoder();
 
+            // Compute difference between current reconstruction and original phantom
             encoder->setComputePipelineState(computeDifferencePipeline);
             encoder->setBuffer(reconstructedBuffer, 0, 0);
             encoder->setBuffer(phantomBuffer, 0, 1);
@@ -394,16 +377,14 @@ std::chrono::duration<double, std::milli> MTLComputeEngine::reconstructImage(int
     cmdBuffer->commit();
     cmdBuffer->waitUntilCompleted();
 
-    auto endTimeTotal = std::chrono::high_resolution_clock::now();
-    std::chrono::duration<double, std::milli> totalTime = endTimeTotal - startTimeTotal;
-    std::cout << "Total time including data transfers: " << totalTime.count() << " ms" << std::endl;
-
     // Save reconstructed texture to file
     std::string imageFileName = std::string(PROJECT_BASE_PATH) + "/metal-data/metal_" + std::to_string(numIterations) +
                                 "_" + std::to_string(geom.imageWidth) + ".txt";
     saveTextureToFile(imageFileName, reconstructedTexture);
 
-    std::cout << "Reconstruction complete. Reconstructed image saved." << std::endl;
+    auto endTimeTotal = std::chrono::high_resolution_clock::now();
+    std::chrono::duration<double, std::milli> totalTime = endTimeTotal - startTimeTotal;
+    std::cout << "Total time including data transfers: " << totalTime.count() << " ms" << std::endl;
 
     return totalReconstructTime;
 }
