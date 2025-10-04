@@ -11,7 +11,7 @@ from scipy.sparse import csr_matrix
 script_dir = os.path.dirname(os.path.realpath(__file__))
 
 # Define the volume geometry
-image_size = 512
+image_size = 4096
 vol_geom = astra.create_vol_geom(image_size, image_size)
 
 # Define projection geometry
@@ -22,7 +22,7 @@ num_detectors = int(np.ceil(2 * np.sqrt(2) * image_size))
 print(f"Number of detectors: {num_detectors}")
 
 # Set number of angles and angle total degrees
-angles = np.linspace(0, np.pi, 180, False)
+angles = np.linspace(0, np.pi, 720, False)
 num_angles = len(angles)
 proj_geom = astra.create_proj_geom(
     'parallel', 1.0, num_detectors, angles
