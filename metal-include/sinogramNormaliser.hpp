@@ -3,7 +3,7 @@
 
 #include "mtlComputeEngine.hpp"
 
-class SinogramNormaliser : public MTLComputeEngine {
+class SinogramNormaliser : public Metal::MTLComputeEngine {
 public:
     SinogramNormaliser(MetalContext& context, const Geometry& geom);
 

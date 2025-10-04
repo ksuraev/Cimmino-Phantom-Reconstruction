@@ -2,6 +2,7 @@
 // For testing of normalisation performance
 
 #include "sinogramNormaliser.hpp"
+#include "../metal-include/MetalUtilities.hpp"
 
 SinogramNormaliser::SinogramNormaliser(MetalContext &context, const Geometry &geom) : MTLComputeEngine(context, geom) {}
 
@@ -15,20 +16,20 @@ double SinogramNormaliser::normaliseSinogram(const std::string &fileName, uint n
     }
 
     // Load sinogram into texture
-    MTL::Texture *testSinogramTexture =
-        createTexture(nDetectors, nAngles, MTL::PixelFormatR32Float, MTL::TextureUsageShaderRead);
+    MTL::Texture *sinogramTexture =
+        metalUtils->createTexture(nDetectors, nAngles, MTL::PixelFormatR32Float, MTL::TextureUsageShaderRead);
     MTL::Region region = MTL::Region::Make2D(0, 0, nDetectors, nAngles);
-    testSinogramTexture->replaceRegion(region, 0, sinogramData.data(), nDetectors * sizeof(float));
+    sinogramTexture->replaceRegion(region, 0, sinogramData.data(), nDetectors * sizeof(float));
 
     // Time the normalisation process
-    auto normTime = timeMethod_ms([&]() {
+    auto normalisationTime = timeMethod_ms([&]() {
         float maxVal = 0.0f;
-        findMaxValInTexture(testSinogramTexture, maxVal);
+        findMaxValInTexture(sinogramTexture, maxVal);
         std::cout << "Max value in sinogram: " << maxVal << std::endl;
-        normaliseTexture(testSinogramTexture, maxVal);
+        normaliseTexture(sinogramTexture, maxVal);
     });
 
-    std::cout << "Sinogram normalisation time: " << normTime << " ms" << std::endl;
+    std::cout << "Sinogram normalisation time: " << normalisationTime << " ms" << std::endl;
 
-    return normTime;
+    return normalisationTime;
 }
