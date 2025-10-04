@@ -1,3 +1,6 @@
+// Implementation of SinogramNormaliser class for normalising sinogram data using MTLComputeEngine functions
+// For testing of normalisation performance
+
 #include "sinogramNormaliser.hpp"
 
 SinogramNormaliser::SinogramNormaliser(MetalContext &context, const Geometry &geom) : MTLComputeEngine(context, geom) {}

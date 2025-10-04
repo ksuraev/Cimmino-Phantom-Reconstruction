@@ -1,14 +1,14 @@
-// This program is to test the execution time of sinogram normalisation using Metal
+// This program is used to test the execution time of sinogram normalisation using Metal
 // Results logged to normalisation_log.csv
 
 #include "../metal-include/sinogramNormaliser.hpp"
 
-constexpr int IMAGE_WIDTH = 256;
-constexpr int IMAGE_HEIGHT = 256;
-constexpr int NUM_ANGLES = 180;
+constexpr int IMAGE_WIDTH = 4096;
+constexpr int IMAGE_HEIGHT = 4096;
+constexpr int NUM_ANGLES = 720;
 
 constexpr const char LOG_FILE[] = "normalisation_log.csv";
-constexpr const char SINOGRAM_TEST_FILE[] = "sinogram_256_180_test.txt";
+constexpr const char SINOGRAM_TEST_FILE[] = "sinogram_4096_720_test.txt";
 
 int main(int argc, char **argv) {
     if (IMAGE_WIDTH != IMAGE_HEIGHT) {
@@ -27,7 +27,7 @@ int main(int argc, char **argv) {
 
         SinogramNormaliser sinogramNormaliser(context, geom);
 
-        // Test sinogram normalisation
+        // Time sinogram normalisation
         auto time = sinogramNormaliser.normaliseSinogram(
             std::string(PROJECT_BASE_PATH) + "/metal-data/" + SINOGRAM_TEST_FILE, geom.nAngles, geom.nDetectors);
 
