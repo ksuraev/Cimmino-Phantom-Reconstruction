@@ -9,6 +9,10 @@ constexpr uint32_t IMAGE_WIDTH = 256;
 constexpr uint32_t IMAGE_HEIGHT = 256;
 constexpr uint32_t NUM_ANGLES = 90;
 
+constexpr const char* LOG_FILE = "logs/performance_log.csv";
+constexpr const char* PROJECTION_FILE = "data/projection_256.bin";
+constexpr const char* PHANTOM_FILE = "data/phantom_256.txt";
+
 /**
  * @brief Find the maximum value in a 2D texture.
  * @param texture The 2D texture represented as a vector of vectors.
@@ -48,6 +52,36 @@ void normaliseTexture(std::vector<std::vector<float>>& texture, float maxVal) {
                 texture[y][x] /= maxVal;
             }
         }
+    }
+}
+
+/**
+ * @brief Compute the sinogram by multiplying the sparse projection matrix with the phantom data.
+ * @param phantomData The phantom image data as a flat vector.
+ * @param projector The sparse projection matrix in CSR format.
+ * @param totalRays The total number of rays (rows in the sinogram).
+ * @param sinogram The output sinogram vector (modified in place).
+ * @note Simulates performing a scan.
+ */
+void computeSinogram(
+    std::vector<float>& phantomData,
+    const SparseMatrix& projector,
+    const size_t& totalRays,
+    std::vector<float>& sinogram) {
+
+    // Initialize sinogram to zero
+    std::fill(sinogram.begin(), sinogram.end(), 0.0f);
+
+    // Compute sinogram by multiplying projector with phantom data
+    for (size_t r = 0; r < totalRays; ++r) {
+        int rowStart = projector.rows[r];
+        int rowEnd = projector.rows[r + 1];
+
+        float dotProduct = 0.0f;
+        for (size_t i = rowStart; i < rowEnd; ++i) {
+            dotProduct += projector.vals[i] * phantomData[projector.cols[i]];
+        }
+        sinogram[r] = dotProduct;
     }
 }
 
@@ -135,7 +169,7 @@ void cimminoReconstruct(int maxIterations,
 
     std::vector<float> residuals(totalRays);
 
-    for (int iter = 0; iter < maxIterations; ++iter) {
+    for (int i = 0; i < maxIterations; ++i) {
 
         // Pass 1: Calculate all residuals
         std::fill(residuals.begin(), residuals.end(), 0.0f);
@@ -167,10 +201,10 @@ void cimminoReconstruct(int maxIterations,
         }
 
         // Check for convergence every 50 iterations
-        if ((iter + 1) % 50 == 0) {
+        if ((i + 1) % 1 == 0) {
             relativeErrorNorm = calculateErrorNorm(phantom, reconstructedVector, phantomNorm);
             if (relativeErrorNorm < 1e-2) {
-                std::cout << "Converged after " << (iter + 1) << " iterations with relative error norm: " << relativeErrorNorm << std::endl;
+                std::cout << "Converged after " << (i + 1) << " iterations with relative error norm: " << relativeErrorNorm << std::endl;
                 break;
             }
         }
@@ -202,20 +236,12 @@ int main(int argc, const char* argv[]) {
     // Load projection matrix from file
     SparseMatrixHeader header = { 0, 0, 0 };
     SparseMatrix projector;
-    if (!loadSparseMatrixBinary(basePath + "data/projection_256.bin", projector, header, totalRays)) {
+    if (!loadSparseMatrixBinary(basePath + PROJECTION_FILE, projector, header, totalRays)) {
         std::cerr << "Failed to load sparse projection matrix." << std::endl;
         return -1;
     }
-
-    // Load sinogram from file
-    std::vector<float> sinogram(totalRays, 0.0f);
-    if (!loadSinogram(basePath + "data/sinogram_512.txt", sinogram)) {
-        std::cerr << "Failed to load sinogram." << std::endl;
-        return -1;
-    }
-
     // Load phantom from file
-    std::vector<float> phantom = loadPhantom((basePath + "data/phantom_256.txt").c_str(), geom);
+    std::vector<float> phantom = loadPhantom((basePath + PHANTOM_FILE).c_str(), geom);
     if (phantom.empty()) {
         std::cerr << "Failed to load phantom." << std::endl;
         return -1;
@@ -227,6 +253,22 @@ int main(int argc, const char* argv[]) {
             std::swap(phantom[y * IMAGE_WIDTH + x], phantom[(IMAGE_HEIGHT - 1 - y) * IMAGE_WIDTH + x]);
         }
     }
+
+    // Load sinogram from file
+    std::vector<float> sinogram(totalRays, 0.0f);
+    auto scanTime = timeMethod_ms([&]() {
+        computeSinogram(phantom, projector, totalRays, sinogram);
+        });
+    std::cout << "Sinogram computation time (ms): " << scanTime << std::endl;
+    // Save sinogram to file
+    std::string sinogramSaveFileName = basePath + "data/sinogram_seq_" + std::to_string(IMAGE_WIDTH) + ".txt";
+    saveImage(sinogramSaveFileName, sinogram, geom.nDetectors, geom.nAngles);
+    //  if (!loadSinogram(basePath + "data/sinogram_512.txt", sinogram)) {
+    //      std::cerr << "Failed to load sinogram." << std::endl;
+    //      return -1;
+    //  }
+
+
 
     // Precompute phantom norm for error calculation
     double phantomNorm = 0.0;
@@ -243,13 +285,13 @@ int main(int argc, const char* argv[]) {
         cimminoReconstruct(numIterations, projector, header, reconstructedImage, phantom, totalRays, sinogram, totalWeightSum, phantomNorm, relativeErrorNorm);
         });
 
-    std::cout << "Total reconstruction time (ms): " << totalReconstructTime << std::endl;
+    std::cout << "Total reconstruction time (ms): " << totalReconstructTime << " with relative error norm: " << relativeErrorNorm << std::endl;
 
     // Save reconstructed image to file
     std::string imageSaveFileName = basePath + "data/image_seq_" + std::to_string(numIterations) + ".txt";
     saveImage(imageSaveFileName, reconstructedImage, geom.imageWidth, geom.imageHeight);
 
     // Log performance
-    logPerformance("Sequential", geom, numIterations, totalReconstructTime, relativeErrorNorm, basePath + "logs/performance_log.csv");
+    logPerformance("Sequential", geom, numIterations, totalReconstructTime, relativeErrorNorm, scanTime, basePath + LOG_FILE);
 }
 

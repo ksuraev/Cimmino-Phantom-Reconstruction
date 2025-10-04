@@ -138,6 +138,7 @@ void logPerformance(const std::string& executionType,
     const Geometry& geom, const int numIterations,
     const double reconstructionTime,
     const double finalErrorNorm,
+    const double scanTime,
     const std::string& filename) {
     std::ofstream logFile;
 
@@ -155,7 +156,7 @@ void logPerformance(const std::string& executionType,
 
     if (writeHeader) {
         logFile << "Timestamp,ExecutionType,NumIterations,ImageWidth,ImageHeight,NumAngles,"
-            "NumDetectors,ReconstructionTime_ms,FinalErrorNorm\n";
+            "NumDetectors,ReconstructionTime_ms,FinalErrorNorm,ScanTime\n";
     }
 
     // Get the current system time for the log entry
@@ -167,7 +168,7 @@ void logPerformance(const std::string& executionType,
     logFile << std::put_time(local_tm, "%Y-%m-%d %H:%M:%S") << "," << executionType << ","
         << numIterations << "," << geom.imageWidth << ","
         << geom.imageHeight << "," << geom.nAngles << "," << geom.nDetectors
-        << "," << reconstructionTime << "," << finalErrorNorm << "\n";
+        << "," << reconstructionTime << "," << finalErrorNorm << "," << scanTime << "\n";
 
     logFile.close();
     std::cout << "Performance metrics logged." << std::endl;

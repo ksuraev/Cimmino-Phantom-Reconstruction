@@ -58,6 +58,7 @@ void logPerformance(const std::string& executionType,
     const Geometry& geom, const int numIterations,
     const double reconstructionTime,
     const double finalErrorNorm,
+    const double scanTime,
     const std::string& filename);
 
 void saveImage(const std::string& filename,

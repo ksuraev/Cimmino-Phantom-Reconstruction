@@ -13,6 +13,10 @@ constexpr uint32_t IMAGE_HEIGHT = 256;
 constexpr uint32_t NUM_ANGLES = 90;
 constexpr uint32_t NUM_THREADS = 8;
 
+constexpr const char* LOG_FILE = "logs/performance_log.csv";
+constexpr const char* PROJECTION_FILE = "data/projection_256.bin";
+constexpr const char* PHANTOM_FILE = "data/phantom_256.txt";
+
 /**
  * @brief Compute the squared L2 norm of each row in the sparse matrix and the total weight sum.
  * @param projector Sparse projection matrix in CSR format.
@@ -68,6 +72,37 @@ double calculateErrorNorm(std::vector<float>& phantom, std::vector<float>& appro
     double differenceNorm = std::sqrt(static_cast<double>(differenceSum));
     double relativeErrorNorm = differenceNorm / phantomNorm;
     return relativeErrorNorm;
+}
+
+/**
+ * @brief Compute the sinogram by multiplying the sparse projection matrix with the phantom data.
+ * @param phantomData The phantom image data as a flat vector.
+ * @param projector The sparse projection matrix in CSR format.
+ * @param totalRays The total number of rays (rows in the sinogram).
+ * @param sinogram The output sinogram vector (modified in place).
+ * @note Simulates performing a scan.
+ */
+void computeSinogram(
+    std::vector<float>& phantomData,
+    const SparseMatrix& projector,
+    const size_t& totalRays,
+    std::vector<float>& sinogram) {
+
+    // Initialise sinogram to zero
+    std::fill(sinogram.begin(), sinogram.end(), 0.0f);
+
+    // Compute sinogram by multiplying projector with phantom data
+#pragma omp parallel for schedule(static) num_threads(NUM_THREADS)
+    for (size_t r = 0; r < totalRays; ++r) {
+        int rowStart = projector.rows[r];
+        int rowEnd = projector.rows[r + 1];
+
+        float dotProduct = 0.0f;
+        for (size_t i = rowStart; i < rowEnd; ++i) {
+            dotProduct += projector.vals[i] * phantomData[projector.cols[i]];
+        }
+        sinogram[r] = dotProduct;
+    }
 }
 
 /**
@@ -144,7 +179,7 @@ void cimminoReconstruct(int numIterations,
             x[i] += localX[i];
         }
         // Check for convergence every 50 iterations
-        if ((i + 1) % 50 == 0) {
+        if ((i + 1) % 1 == 0) {
             relativeErrorNorm = calculateErrorNorm(phantom, x, phantomNorm);
             if (relativeErrorNorm < 1e-2) {
                 std::cout << "Converged after " << (i + 1) << " iterations with relative error norm: " << relativeErrorNorm << std::endl;
@@ -180,20 +215,12 @@ int main(int argc, const char* argv[]) {
     // Load projection matrix from file
     SparseMatrixHeader header = { 0, 0, 0 };
     SparseMatrix projector;
-    if (!loadSparseMatrixBinary(basePath + "data/projection_256.bin", projector, header, totalRays)) {
+    if (!loadSparseMatrixBinary(basePath + PROJECTION_FILE, projector, header, totalRays)) {
         std::cerr << "Failed to load sparse projection matrix." << std::endl;
         return -1;
     }
-
-    // Load sinogram from file
-    std::vector<float> sinogram(totalRays, 0.0f);
-    if (!loadSinogram(basePath + "data/sinogram_256.txt", sinogram)) {
-        std::cerr << "Failed to load sinogram." << std::endl;
-        return -1;
-    }
-
     // Load phantom from file
-    std::vector<float> phantom = loadPhantom((basePath + "data/phantom_256.txt").c_str(), geom);
+    std::vector<float> phantom = loadPhantom((basePath + PHANTOM_FILE).c_str(), geom);
     if (phantom.empty()) {
         std::cerr << "Failed to load phantom." << std::endl;
         return -1;
@@ -204,6 +231,17 @@ int main(int argc, const char* argv[]) {
             std::swap(phantom[y * IMAGE_WIDTH + x], phantom[(IMAGE_HEIGHT - 1 - y) * IMAGE_WIDTH + x]);
         }
     }
+
+    // Load sinogram from file
+    std::vector<float> sinogram(totalRays, 0.0f);
+    auto scanTime = timeMethod_ms([&]() {
+        computeSinogram(phantom, projector, totalRays, sinogram);
+        });
+    std::cout << "Sinogram computation time (ms): " << scanTime << std::endl;
+    // if (!loadSinogram(basePath + "data/sinogram_256.txt", sinogram)) {
+    //     std::cerr << "Failed to load sinogram." << std::endl;
+    //     return -1;
+    // }
 
     // Precompute phantom norm for error calculation
     double phantomNorm = 0.0;
@@ -226,6 +264,6 @@ int main(int argc, const char* argv[]) {
     saveImage(imageSaveFileName, reconstructed, geom.imageWidth, geom.imageHeight);
 
     // Log performance data
-    logPerformance("openmp", geom, numIterations, totalReconstructTime, relativeErrorNorm, basePath + "logs/performance_log.csv");
+    logPerformance("openmp", geom, numIterations, totalReconstructTime, relativeErrorNorm, scanTime, basePath + LOG_FILE);
 }
 
