@@ -10,6 +10,48 @@ constexpr uint32_t IMAGE_HEIGHT = 256;
 constexpr uint32_t NUM_ANGLES = 90;
 
 /**
+ * @brief Find the maximum value in a 2D texture.
+ * @param texture The 2D texture represented as a vector of vectors.
+ * @return The maximum value found in the texture.
+ */
+float findMaxValue(const std::vector<std::vector<float>>& texture) {
+    float maxVal = 0.0f;
+
+    for (size_t y = 0; y < texture.size(); ++y) {
+        for (size_t x = 0; x < texture[y].size(); ++x) {
+            maxVal = std::max(maxVal, texture[y][x]);
+        }
+    }
+
+    return maxVal;
+}
+
+/**
+ * @brief Normalise a 2D texture by dividing each element by the maximum value.
+ * If the maximum value is zero or negative, all elements are set to zero.
+ * @param texture The 2D texture represented as a vector of vectors (modified in place).
+ * @param maxVal The maximum value used for normalisation.
+ */
+void normaliseTexture(std::vector<std::vector<float>>& texture, float maxVal) {
+    if (maxVal <= 0.0f) {
+        // If maxVal is 0 or negative, set all values to 0
+        for (size_t y = 0; y < texture.size(); ++y) {
+            for (size_t x = 0; x < texture[y].size(); ++x) {
+                texture[y][x] = 0.0f;
+            }
+        }
+    }
+    else {
+        // Normalize each value by dividing by maxVal
+        for (size_t y = 0; y < texture.size(); ++y) {
+            for (size_t x = 0; x < texture[y].size(); ++x) {
+                texture[y][x] /= maxVal;
+            }
+        }
+    }
+}
+
+/**
  * @brief Compute the squared L2 norm of each row in the sparse matrix and the total weight sum.
  * @param projector Sparse projection matrix in CSR format.
  * @param totalRays Total number of rays (rows in the sinogram).
@@ -148,7 +190,6 @@ int main(int argc, const char* argv[]) {
     }
 
     int numIterations = 100;
-
     if (argc > 1) {
         numIterations = std::atoi(argv[1]);
     }
@@ -168,7 +209,7 @@ int main(int argc, const char* argv[]) {
 
     // Load sinogram from file
     std::vector<float> sinogram(totalRays, 0.0f);
-    if (!loadSinogram(basePath + "data/sinogram_256.txt", sinogram)) {
+    if (!loadSinogram(basePath + "data/sinogram_512.txt", sinogram)) {
         std::cerr << "Failed to load sinogram." << std::endl;
         return -1;
     }
