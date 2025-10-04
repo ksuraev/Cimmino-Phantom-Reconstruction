@@ -37,7 +37,7 @@ public:
    * @brief Perform the CT scan simulation to generate the sinogram from the phantom data.
    * @param phantomData The input phantom image data as a flat vector.
    */
-  void computeSinogram(std::vector<float>& phantomData);
+  void computeSinogram(std::vector<float>& phantomData, double& scanTimeMs);
 
   /**
    * @brief Reconstruct the image using Cimmino's algorithm implemented in Metal.
