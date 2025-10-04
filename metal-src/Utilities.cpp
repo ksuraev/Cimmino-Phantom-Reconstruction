@@ -90,11 +90,27 @@ std::vector<float> loadPhantomBinary(const char* filename, const Geometry& geom)
 }
 
 bool loadSinogram(const std::string& filename, std::vector<float>& sinogram, uint numRays) {
-    std::ifstream in(filename, std::ios::binary);
-    if (!in) return false;
-    sinogram.resize(numRays);
-    in.read(reinterpret_cast<char*>(sinogram.data()), numRays * sizeof(float));
-    if (!in) return false;
+    std::ifstream in(filename);
+    if (!in) {
+        std::cerr << "Error: Could not open file " << filename << std::endl;
+        return false;
+    }
+
+    sinogram.clear();
+    std::string line;
+    while (std::getline(in, line)) {
+        std::istringstream iss(line);
+        float value;
+        while (iss >> value) {
+            sinogram.push_back(value);
+        }
+    }
+
+    if (sinogram.size() != numRays) {
+        std::cerr << "Error: Expected " << numRays << " rays, but loaded " << sinogram.size() << " values." << std::endl;
+        return false;
+    }
+
     return true;
 }
 
