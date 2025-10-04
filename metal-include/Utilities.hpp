@@ -1,7 +1,7 @@
 /**
  * @file Utilities.hpp
- * @brief Utility header file containing helper functions and structures for CT reconstruction using Metal.
- * This file contains functions for loading and saving data, as well as logging performance metrics.
+ * @brief Utility header file containing helper functions and structures for CT reconstruction.
+ * Includes functions for loading and saving data, as well as logging performance metrics.
  */
 #ifndef UTILS_HPP
 #define UTILS_HPP
@@ -40,8 +40,8 @@ struct SparseMatrixHeader {
  * @brief Structure to hold a sparse matrix in CSR format.
  */
 struct SparseMatrix {
-    std::vector<int> rows;
-    std::vector<int> cols;
+    std::vector<uint32_t> rows;
+    std::vector<uint32_t> cols;
     std::vector<float> vals;
 };
 
@@ -88,14 +88,6 @@ std::vector<float> loadColourMapTexture(const std::string& filename);
  * @return True if the sinogram was successfully loaded, false otherwise.
  */
 bool loadSinogram(const std::string& filename, std::vector<float>& sinogram, uint numRays);
-
-/**
- * @brief Save sinogram data from a Metal buffer to a binary file for testing.
- * @param filename The name of the binary file to save the sinogram data to.
- * @param sinogramBuffer The Metal buffer containing the sinogram data.
- * @param numRays The number of rays (size of the sinogram).
- */
-void saveSinogram(const std::string& filename, MTL::Buffer* sinogramBuffer, uint numRays);
 
 /**
  * @brief Save a Metal texture to a binary file for testing.

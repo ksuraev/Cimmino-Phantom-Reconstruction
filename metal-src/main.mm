@@ -1,5 +1,5 @@
-#include "../metal-include/mtlComputeEngine.hpp"
-#include "../metal-include/mtlRenderEngine.hpp"
+#include "../metal-include/MetalComputeEngine.hpp"
+#include "../metal-include/MetalRenderEngine.hpp"
 
 constexpr int IMAGE_WIDTH = 256;
 constexpr int IMAGE_HEIGHT = 256;
@@ -27,7 +27,7 @@ int main(int argc, char **argv) {
 
         MetalContext context = MetalContext();
 
-        MTLComputeEngine mtlComputeEngine = MTLComputeEngine(context, geom);
+        Metal::MTLComputeEngine mtlComputeEngine = Metal::MTLComputeEngine(context, geom);
 
         // Load projection matrix from .bin file and compute total weight sum
         double projectionTime = timeMethod_ms([&]() { mtlComputeEngine.loadProjectionMatrix(PROJECTION_MATRIX_FILE); });
