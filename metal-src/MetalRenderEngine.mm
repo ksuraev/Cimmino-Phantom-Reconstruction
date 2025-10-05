@@ -13,16 +13,17 @@ MTLRenderEngine::MTLRenderEngine(MetalContext &context) {
     commandQueue = context.getCommandQueue();
     library = context.getLibrary();
 
+    metalUtils = new MetalUtilities(device, library, commandQueue);
+
     // Initialise GLFW window with CAMetalLayer
     initWindow();
-
-    // Create the render pipeline
     createRenderPipeline();
 }
 
 MTLRenderEngine::~MTLRenderEngine() {
     glfwDestroyWindow(glfwWindow);
     glfwTerminate();
+    delete metalUtils;
 }
 
 void MTLRenderEngine::initWindow() {
@@ -75,8 +76,8 @@ void MTLRenderEngine::createRenderPipeline() {
                                     numColors * sizeof(float) * 4);
 
     // Extract vertex and fragment kernel functions from library
-    MTL::Function *vertexFn = createKernelFn("vertex_main", library);
-    MTL::Function *fragmentFn = createKernelFn("fragment_main", library);
+    MTL::Function *vertexFn = metalUtils->createKernelFn("vertex_main", library);
+    MTL::Function *fragmentFn = metalUtils->createKernelFn("fragment_main", library);
 
     // Set render pipeline descriptor with functions and pixel format
     MTL::RenderPipelineDescriptor *renderDesc = MTL::RenderPipelineDescriptor::alloc()->init();
@@ -87,7 +88,7 @@ void MTLRenderEngine::createRenderPipeline() {
     if (!renderDesc) {
         std::cerr << "Error: Failed to create render pipeline descriptor: "
                   << error->localizedDescription()->utf8String() << std::endl;
-        exit(-1);
+        return;
     }
 
     // Create render pipeline
@@ -95,7 +96,7 @@ void MTLRenderEngine::createRenderPipeline() {
     if (!renderPipeline) {
         std::cerr << "Error: Failed to create render pipeline state: " << error->localizedDescription()->utf8String()
                   << std::endl;
-        exit(-1);
+        return;
     }
 }
 
@@ -107,10 +108,10 @@ void MTLRenderEngine::keyCallback(GLFWwindow *window, int key, int scancode, int
     if (action == GLFW_PRESS || action == GLFW_REPEAT) {
         switch (key) {
             case GLFW_KEY_RIGHT:
-                engine->currentTextureIndex = (engine->currentTextureIndex + 1) % 3;  // Move forward
+                engine->currentTextureIndex = (engine->currentTextureIndex + 1) % 3;
                 break;
             case GLFW_KEY_LEFT:
-                engine->currentTextureIndex = (engine->currentTextureIndex + 2) % 3;  // Move backward
+                engine->currentTextureIndex = (engine->currentTextureIndex + 2) % 3;
                 break;
         }
     }

@@ -6,7 +6,6 @@
 #ifndef UTILS_HPP
 #define UTILS_HPP
 
-#include <Metal/Metal.hpp>
 #include <cstdint>
 #include <fstream>
 #include <iostream>
@@ -46,15 +45,6 @@ struct SparseMatrix {
 };
 
 /**
- * @brief Create a Metal kernel function from the library.
- * @param functionName The name of the kernel function to create.
- * @return A pointer to the created Metal function.
- * Exits the program if the function cannot be found.
- */
-MTL::Function* createKernelFn(const char* functionName, MTL::Library* library);
-
-
-/**
  * @brief Load sparse projection matrix from binary file for testing.
  * @param filename The name of the binary file containing the sparse matrix.
  * @param matrix The sparse matrix structure to be filled with loaded data.
@@ -90,13 +80,6 @@ std::vector<float> loadColourMapTexture(const std::string& filename);
 bool loadSinogram(const std::string& filename, std::vector<float>& sinogram, uint numRays);
 
 /**
- * @brief Save a Metal texture to a binary file for testing.
- * @param filename The name of the binary file to save the texture data to.
- * @param texture The Metal texture to be saved.
- */
-void saveTextureToFile(const std::string& filename, MTL::Texture* texture);
-
-/**
  * @brief Flip image data vertically.
  * @param original_data The original image data as a vector of floats.
  * @param width The width of the image.
@@ -117,7 +100,7 @@ void logPerformance(
     const Geometry& geom, const int numIterations,
     const double scanTime,
     const double projTime,
-    const std::chrono::duration<double, std::milli>& reconTime,
+    const double reconTime,
     const double finalErrorNorm,
     const std::string& filename);
 

@@ -1,3 +1,5 @@
+// Implementation of Metal utility functions for setting up and managing Metal resources.
+
 #include "../metal-include/MetalUtilities.hpp"
 
 MetalUtilities::MetalUtilities(MTL::Device* device, MTL::Library* library, MTL::CommandQueue* commandQueue)
@@ -78,4 +80,43 @@ void MetalUtilities::copyBufferToTexture(MTL::CommandBuffer* cmdBuffer, MTL::Buf
     blitEncoder->copyFromBuffer(buffer, 0, width * sizeof(float), 0, MTL::Size(width, height, 1), texture, 0, 0,
                                 MTL::Origin(0, 0, 0));
     blitEncoder->endEncoding();
+}
+
+void MetalUtilities::saveTextureToFile(const std::string& filename, MTL::Texture* texture) {
+    if (!texture) {
+        std::cerr << "Error: Cannot save a null texture." << std::endl;
+        return;
+    }
+
+    long width = texture->width();
+    long height = texture->height();
+    if (width <= 0 || height <= 0) {
+        std::cerr << "Error: Texture has invalid dimensions." << std::endl;
+        return;
+    }
+
+    std::vector<float> textureVector(width * height);
+
+    // Define the region to read (entire texture)
+    MTL::Region region = MTL::Region::Make2D(0, 0, width, height);
+    texture->getBytes(textureVector.data(), width * sizeof(float), region, 0);
+
+    std::ofstream outFile(filename);
+    if (!outFile.is_open()) {
+        std::cerr << "Error: Could not open file '" << filename << "' for writing." << std::endl;
+        return;
+    }
+
+    for (long y = 0; y < height; ++y) {
+        for (long x = 0; x < width; ++x) {
+            outFile << textureVector[y * width + x];
+            if (x < width - 1) {
+                outFile << " ";
+            }
+        }
+        outFile << "\n";
+    }
+
+    outFile.close();
+    std::cout << "Texture data successfully saved to text file." << std::endl;
 }

@@ -27,7 +27,7 @@ int main(int argc, char **argv) {
 
         MetalContext context = MetalContext();
 
-        Metal::MTLComputeEngine mtlComputeEngine = Metal::MTLComputeEngine(context, geom);
+        MTLComputeEngine mtlComputeEngine = MTLComputeEngine(context, geom);
 
         // Load projection matrix from .bin file and compute total weight sum
         double projectionTime = timeMethod_ms([&]() { mtlComputeEngine.loadProjectionMatrix(PROJECTION_MATRIX_FILE); });

@@ -13,12 +13,8 @@
 #include "../metal-include/MetalComputeEngine.hpp"
 #include "../metal-include/MetalUtilities.hpp"
 
-using namespace Metal;
-
-MTLComputeEngine::MTLComputeEngine(MetalContext &context, const Geometry &geom) : geom(geom) {
-    // Set total rays - one per angle-detector pair
-    totalRays = geom.nAngles * geom.nDetectors;
-
+MTLComputeEngine::MTLComputeEngine(MetalContext &context, const Geometry &geom)
+    : geom(geom), totalRays(geom.nAngles * geom.nDetectors) {
     // Initialise metal context
     device = context.getDevice();
     commandQueue = context.getCommandQueue();
@@ -27,10 +23,10 @@ MTLComputeEngine::MTLComputeEngine(MetalContext &context, const Geometry &geom) 
     metalUtils = new MetalUtilities(device, defaultLibrary, commandQueue);
 }
 
-MTLComputeEngine::~MTLComputeEngine() {}
+MTLComputeEngine::~MTLComputeEngine() { delete metalUtils; }
 
 void MTLComputeEngine::loadProjectionMatrix(const std::string &projectionFileName) {
-    // Load projection matrix from binary file - generated using ASTRA Toolbox
+    // Load sparse projection matrix from binary file - generated using ASTRA Toolbox
     SparseMatrixHeader header;
     SparseMatrix matrix;
     loadSparseMatrixBinary(std::string(PROJECT_BASE_PATH) + projectionFileName, matrix, header);
@@ -38,14 +34,10 @@ void MTLComputeEngine::loadProjectionMatrix(const std::string &projectionFileNam
     totalNonZeroElements = header.num_non_zero;
 
     // Check sizes match expected
-    if (matrix.rows.size() != (totalRays + 1)) {
-        std::cerr << "Error: Offsets size does not match total rays + 1." << std::endl;
-        exit(-1);
-    }
-    if (matrix.cols.size() != totalNonZeroElements || matrix.vals.size() != totalNonZeroElements) {
-        std::cerr << "Error: Cols or Vals size does not match total non-zero elements." << std::endl;
-        exit(-1);
-    }
+    if (matrix.rows.size() != (totalRays + 1))
+        throw std::runtime_error("Error: Rows/offsets size does not match expected number of rays + 1.");
+    if (matrix.cols.size() != totalNonZeroElements || matrix.vals.size() != totalNonZeroElements)
+        throw std::runtime_error("Error: Cols or Vals size does not match total non-zero elements.");
 
     // Load into projection matrix CSR metal buffers
     offsetsBuffer = metalUtils->createBuffer((matrix.rows.size()) * sizeof(int), MTL::ResourceStorageModeShared,
@@ -56,7 +48,7 @@ void MTLComputeEngine::loadProjectionMatrix(const std::string &projectionFileNam
                                           matrix.vals.data());
 
     // Calculate total row weight sum for Cimmino's algorithm
-    totalWeightSum = 0.0f;
+    totalWeightSum = 0.0F;
     for (size_t i = 0; i < totalRays; ++i) {
         double rowNormSq = 0.0;
         for (size_t j = matrix.rows[i]; j < matrix.rows[i + 1]; ++j) {
@@ -71,7 +63,7 @@ void MTLComputeEngine::initialisePhantom(std::vector<float> &phantomData) {
     std::vector<float> flippedPhantomData = flipImageVertically(phantomData, geom.imageWidth, geom.imageHeight);
 
     // Precompute phantom norm for convergence checking
-    float phantomNormSum = 0.0f;
+    float phantomNormSum = 0.0F;
     for (const auto &val : flippedPhantomData) {
         phantomNormSum += val * val;
     }
@@ -86,10 +78,7 @@ void MTLComputeEngine::initialisePhantom(std::vector<float> &phantomData) {
     // Load original phantom data into texture
     MTL::Region region = MTL::Region::Make2D(0, 0, geom.imageWidth, geom.imageHeight);
     originalPhantomTexture->replaceRegion(region, 0, flippedPhantomData.data(), geom.imageWidth * sizeof(float));
-    if (!originalPhantomTexture) {
-        std::cerr << "Error: Failed to create phantom texture. " << std::endl;
-        exit(-1);
-    }
+    if (!originalPhantomTexture) throw std::runtime_error("Failed to create phantom texture.");
 }
 
 void MTLComputeEngine::computeSinogram(std::vector<float> &phantomData, double &scanTimeMs) {
@@ -132,7 +121,7 @@ void MTLComputeEngine::computeSinogram(std::vector<float> &phantomData, double &
     /* Uncomment to save non-normalised sinogram buffer to .txt file */
     // std::string filePath =
     //     std::string(PROJECT_BASE_PATH) + "/metal-data/sinogram_" + std::to_string(geom.imageWidth) + ".txt";
-    // saveTextureToFile(filePath, sinogramTexture);
+    // metalUtils->saveTextureToFile(filePath, sinogramTexture);
 
     // Normalise sinogram texture
     float maxSinogramValue = 0.0F;
@@ -141,10 +130,7 @@ void MTLComputeEngine::computeSinogram(std::vector<float> &phantomData, double &
 }
 
 void MTLComputeEngine::findMaxValInTexture(MTL::Texture *texture, float &maxValue) {
-    if (!texture) {
-        std::cerr << "Input texture is null." << std::endl;
-        exit(-1);
-    }
+    if (!texture) throw std::runtime_error("Texture to find max value in is null.");
 
     // Find max value in texture using atomic operations in Metal
     auto maxPerThreadGroupFn = metalUtils->createKernelFn("findMaxInTexture", defaultLibrary);
@@ -156,7 +142,7 @@ void MTLComputeEngine::findMaxValInTexture(MTL::Texture *texture, float &maxValu
     NS::UInteger maxThreadsPerThreadgroup = findMaxPipeline->maxTotalThreadsPerThreadgroup();
     NS::UInteger threadExecutionWidth = findMaxPipeline->threadExecutionWidth();
 
-    // Dynamically calculate threadgroup size
+    // Dynamically calculate 2D threadgroup size
     NS::UInteger tgWidth = std::min(threadExecutionWidth, texture->width());
     NS::UInteger tgHeight = std::min(maxThreadsPerThreadgroup / tgWidth, texture->height());
     MTL::Size threadgroupSize = MTL::Size(tgWidth, tgHeight, 1);
@@ -182,16 +168,13 @@ void MTLComputeEngine::findMaxValInTexture(MTL::Texture *texture, float &maxValu
 
     // Read back max value from buffer
     uint maxValueUint = *maxValuePtr;
-    float maxFloatValue = reinterpret_cast<float &>(maxValueUint);
+    float maxFloatValue = std::bit_cast<float>(maxValueUint);
     maxValue = maxFloatValue;
 }
 
 void MTLComputeEngine::normaliseTexture(MTL::Texture *texture, float maxValue) {
-    if (!texture) {
-        std::cerr << "Texture to be normalised is null." << std::endl;
-        exit(-1);
-    }
-    if (maxValue == 0.0f) {
+    if (!texture) throw std::runtime_error("Texture to be normalised is null.");
+    if (maxValue == 0.0F) {
         std::cerr << "Max value is zero, texture will not be normalised." << std::endl;
         return;
     }
@@ -220,8 +203,8 @@ void MTLComputeEngine::normaliseTexture(MTL::Texture *texture, float maxValue) {
     cmdBuffer->waitUntilCompleted();
 }
 
-std::chrono::duration<double, std::milli> MTLComputeEngine::reconstructImage(int numIterations,
-                                                                             double &relativeErrorNorm) {
+double MTLComputeEngine::reconstructImage(int numIterations, double &relativeErrorNorm,
+                                          const double relativeErrorThreshold, const int errorCheckInterval) {
     auto startTimeTotal = std::chrono::high_resolution_clock::now();
 
     // Initialise kernel functions and pipelines
@@ -283,7 +266,7 @@ std::chrono::duration<double, std::milli> MTLComputeEngine::reconstructImage(int
         cmdBuffer->waitUntilCompleted();
 
         // Check for convergence every 50 iterations
-        if ((i + 1) % 50 == 0) {
+        if ((i + 1) % errorCheckInterval == 0) {
             cmdBuffer = commandQueue->commandBuffer();
             encoder = cmdBuffer->computeCommandEncoder();
 
@@ -298,10 +281,10 @@ std::chrono::duration<double, std::milli> MTLComputeEngine::reconstructImage(int
             cmdBuffer->waitUntilCompleted();
 
             // Read back difference sum and compute relative error norm
-            float *differenceSum = static_cast<float *>(differenceSumBuffer->contents());
-            relativeErrorNorm = sqrt((double)(*differenceSum)) / phantomNorm;
+            auto *differenceSum = static_cast<float *>(differenceSumBuffer->contents());
+            relativeErrorNorm = sqrt(static_cast<double>(*differenceSum)) / phantomNorm;
 
-            if (relativeErrorNorm < 1e-2) {
+            if (relativeErrorNorm < relativeErrorThreshold) {
                 std::cout << "Converged after " << (i + 1) << " iterations with relative error norm "
                           << relativeErrorNorm << std::endl;
                 break;
@@ -321,18 +304,17 @@ std::chrono::duration<double, std::milli> MTLComputeEngine::reconstructImage(int
         metalUtils->createTexture(width, height, MTL::PixelFormatR32Float, MTL::TextureUsageShaderRead);
     cmdBuffer = commandQueue->commandBuffer();
     metalUtils->copyBufferToTexture(cmdBuffer, reconstructedBuffer, reconstructedTexture, width, height);
-
     cmdBuffer->commit();
     cmdBuffer->waitUntilCompleted();
 
     // Save reconstructed texture to file
     std::string imageFileName = std::string(PROJECT_BASE_PATH) + "/metal-data/metal_" + std::to_string(numIterations) +
                                 "_" + std::to_string(geom.imageWidth) + ".txt";
-    saveTextureToFile(imageFileName, reconstructedTexture);
+    metalUtils->saveTextureToFile(imageFileName, reconstructedTexture);
 
     auto endTimeTotal = std::chrono::high_resolution_clock::now();
     std::chrono::duration<double, std::milli> totalTime = endTimeTotal - startTimeTotal;
     std::cout << "Total time including data transfers: " << totalTime.count() << " ms" << std::endl;
 
-    return totalReconstructTime;
+    return totalReconstructTime.count();
 }

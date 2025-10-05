@@ -20,6 +20,7 @@
 #include "MetalContext.hpp"
 
 #include "Utilities.hpp"
+#include "MetalUtilities.hpp"
 
 class MTLRenderEngine {
 public:
@@ -67,17 +68,17 @@ public:
     void setOriginalPhantomTexture(MTL::Texture* texture) { originalPhantomTexture = texture; }
 
 private:
+
     MTL::Device* device;
     MTL::Library* library;
     MTL::CommandQueue* commandQueue;
+    MetalUtilities* metalUtils;
 
-    /* WINDOW & RENDER PIPELINE */
     GLFWwindow* glfwWindow;
     NSWindow* metalWindow;
     CAMetalLayer* metalLayer;
     MTL::RenderPipelineState* renderPipeline;
 
-    /* TEXTURES */
     MTL::Texture* colourMapTexture;
     MTL::Texture* reconstructedTexture;
     MTL::Texture* sinogramTexture;

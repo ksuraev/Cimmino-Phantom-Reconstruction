@@ -3,6 +3,7 @@
 #include <Metal/Metal.hpp>
 #include <string>
 #include <iostream>
+#include <fstream>
 
 class MetalUtilities {
 public:

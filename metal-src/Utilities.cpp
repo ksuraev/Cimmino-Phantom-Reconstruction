@@ -4,15 +4,6 @@
  */
 #include "../metal-include/Utilities.hpp"
 
-MTL::Function* createKernelFn(const char* functionName, MTL::Library* library) {
-    MTL::Function* fn = library->newFunction(NS::String::string(functionName, NS::UTF8StringEncoding));
-    if (!fn) {
-        std::cerr << "Failed to find kernel " << functionName << " in the library." << std::endl;
-        std::exit(-1);
-    }
-    return fn;
-}
-
 bool loadSparseMatrixBinary(const std::string& filename, SparseMatrix& matrix, SparseMatrixHeader& header) {
     std::ifstream inFile(filename, std::ios::binary);
     if (!inFile) {
@@ -136,73 +127,6 @@ std::vector<float> loadColourMapTexture(const std::string& filename) {
     return colourMapData;
 }
 
-void saveSinogram(const std::string& filename, MTL::Buffer* sinogramBuffer, uint numRays) {
-    // Calculate the total number of float elements
-    size_t size = numRays;
-    size_t total_bytes = size * sizeof(float);
-
-    // Get a pointer to the raw data in the Metal buffer
-    void* buffer_contents = sinogramBuffer->contents();
-
-    // Open a file stream for writing in binary mode
-    std::ofstream outFile(filename, std::ios::binary);
-
-    if (!outFile.is_open()) {
-        std::cerr << "Error: Could not open file '" << filename << "' for writing." << std::endl;
-        return;
-    }
-
-    // Write the raw bytes directly from the Metal buffer's contents to the file
-    outFile.write(static_cast<const char*>(buffer_contents), total_bytes);
-
-    outFile.close();
-    std::cout << "Sinogram data successfully saved to '" << filename << "'." << std::endl;
-}
-
-void saveTextureToFile(const std::string& filename, MTL::Texture* texture) {
-    if (!texture) {
-        std::cerr << "Error: Cannot save a null texture." << std::endl;
-        return;
-    }
-
-    long width = texture->width();
-    long height = texture->height();
-    if (width <= 0 || height <= 0) {
-        std::cerr << "Error: Texture has invalid dimensions." << std::endl;
-        return;
-    }
-
-    // Create vector to hold texture data
-    std::vector<float> textureVector(width * height);
-
-    // Define the region to read (entire texture)
-    MTL::Region region = MTL::Region::Make2D(0, 0, width, height);
-
-    // Read the texture data into the vector
-    texture->getBytes(textureVector.data(), width * sizeof(float), region, 0);
-
-    // Open file for text writing
-    std::ofstream outFile(filename);
-    if (!outFile.is_open()) {
-        std::cerr << "Error: Could not open file '" << filename << "' for writing." << std::endl;
-        return;
-    }
-
-    // Write the texture data to the file in a human-readable format
-    for (long y = 0; y < height; ++y) {
-        for (long x = 0; x < width; ++x) {
-            outFile << textureVector[y * width + x];
-            if (x < width - 1) {
-                outFile << " "; // Separate values with a space
-            }
-        }
-        outFile << "\n"; // New line at the end of each row
-    }
-
-    outFile.close();
-    std::cout << "Texture data successfully saved to text file." << std::endl;
-}
-
 std::vector<float> flipImageVertically(const std::vector<float>& originalData, int width, int height) {
     std::vector<float> flippedData(originalData);
     for (size_t y = 0; y < height / 2; ++y) {
@@ -218,7 +142,7 @@ void logPerformance(
     const Geometry& geom, const int numIterations,
     const double scanTime,
     const double projTime,
-    const std::chrono::duration<double, std::milli>& reconTime,
+    const double reconTime,
     const double finalErrorNorm,
     const std::string& filename) {
     std::ofstream logFile;
@@ -249,7 +173,7 @@ void logPerformance(
         << numIterations << "," << geom.imageWidth << ","
         << geom.imageHeight << "," << geom.nAngles << "," << geom.nDetectors
         << "," << scanTime << "," << projTime << ","
-        << reconTime.count() << "," << finalErrorNorm << "\n";
+        << reconTime << "," << finalErrorNorm << "\n";
 
     logFile.close();
     std::cout << "Performance metrics logged." << std::endl;

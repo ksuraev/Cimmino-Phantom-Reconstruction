@@ -1,7 +1,7 @@
 # CMakeLists.txt
 cmake_minimum_required(VERSION 3.20)
 project(Project VERSION 1.0 LANGUAGES CXX)
-project(TestSinogramNormalisation VERSION 1.0 LANGUAGES CXX)
+project(NormalisationProfiler VERSION 1.0 LANGUAGES CXX)
 set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 
 # Configure build type
@@ -10,7 +10,7 @@ if(NOT CMAKE_BUILD_TYPE)
 endif()
 
 # Set the C++ standard (metal-cpp requires C++17 or later)
-set(CMAKE_CXX_STANDARD 17)
+set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
 set(CMAKE_LINKER_FLAGS "${CMAKE_LINKER_FLAGS}")
@@ -22,13 +22,13 @@ add_executable(Project ${PROJECT_SOURCES})
 
 # Add source files for test normalisation project, excluding main.mm to avoid duplicate main function
 list(FILTER PROJECT_SOURCES EXCLUDE REGEX ".*metal-src/main.mm")
-add_executable(TestSinogramNormalisation
-    normalisation-tests/testSinogramNormalisation.mm
+add_executable(NormalisationProfiler
+    normalisation-profiler/main.mm
     ${PROJECT_SOURCES}
 )
 
 target_include_directories(Project PRIVATE ${CMAKE_SOURCE_DIR}/metal-include)
-target_include_directories(TestSinogramNormalisation PRIVATE ${CMAKE_SOURCE_DIR}/metal-include)
+target_include_directories(NormalisationProfiler PRIVATE ${CMAKE_SOURCE_DIR}/metal-include)
 
 # Find and include GLFW and Apple frameworks
 find_package(glfw3 REQUIRED)
@@ -41,7 +41,7 @@ find_library(APPLE_FWK_METAL Metal REQUIRED)
 target_include_directories(Project
   SYSTEM PUBLIC ${CMAKE_SOURCE_DIR}/metal-cpp-library
 )
-target_include_directories(TestSinogramNormalisation
+target_include_directories(NormalisationProfiler
   SYSTEM PUBLIC ${CMAKE_SOURCE_DIR}/metal-cpp-library
 )
 
@@ -52,7 +52,7 @@ target_link_libraries(Project
   ${APPLE_FWK_METAL}
 )
 
-target_link_libraries(TestSinogramNormalisation 
+target_link_libraries(NormalisationProfiler 
   glfw
   ${APPLE_FWK_FOUNDATION}
   ${APPLE_FWK_QUARTZ_CORE}
@@ -63,7 +63,7 @@ target_link_libraries(TestSinogramNormalisation
 # Define PROJECT_BASE_PATH for use in the code
 set(PROJECT_BASE_PATH "${CMAKE_SOURCE_DIR}")
 target_compile_definitions(Project PRIVATE PROJECT_BASE_PATH="${PROJECT_BASE_PATH}")
-target_compile_definitions(TestSinogramNormalisation PRIVATE PROJECT_BASE_PATH="${PROJECT_BASE_PATH}")
+target_compile_definitions(NormalisationProfiler PRIVATE PROJECT_BASE_PATH="${PROJECT_BASE_PATH}")
 
 # Compile metal shaders to a metallib file
 set(METAL_SHADER_SRC ${CMAKE_SOURCE_DIR}/metal-shaders/kernels.metal)
@@ -87,4 +87,4 @@ add_custom_target(
     COMMENT "Building Metal library"
 )
 add_dependencies(Project MetalLibrary)
-add_dependencies(TestSinogramNormalisation MetalLibrary)
+add_dependencies(NormalisationProfiler MetalLibrary)
