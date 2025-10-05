@@ -2,6 +2,7 @@
 cmake_minimum_required(VERSION 3.20)
 project(Project VERSION 1.0 LANGUAGES CXX)
 project(NormalisationProfiler VERSION 1.0 LANGUAGES CXX)
+project(AlgorithmTester VERSION 1.0 LANGUAGES CXX)
 set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 
 # Configure build type
@@ -27,8 +28,14 @@ add_executable(NormalisationProfiler
     ${PROJECT_SOURCES}
 )
 
+add_executable(AlgorithmTester
+    algorithm-tester/main.mm
+    ${PROJECT_SOURCES}
+)
+
 target_include_directories(Project PUBLIC ${CMAKE_SOURCE_DIR}/metal-include)
 target_include_directories(NormalisationProfiler PUBLIC ${CMAKE_SOURCE_DIR}/metal-include)
+target_include_directories(AlgorithmTester PUBLIC ${CMAKE_SOURCE_DIR}/metal-include)
 
 # Find and include GLFW and Apple frameworks
 find_package(glfw3 REQUIRED)
@@ -42,6 +49,9 @@ target_include_directories(Project
   SYSTEM PUBLIC ${CMAKE_SOURCE_DIR}/metal-cpp-library
 )
 target_include_directories(NormalisationProfiler
+  SYSTEM PUBLIC ${CMAKE_SOURCE_DIR}/metal-cpp-library
+)
+target_include_directories(AlgorithmTester
   SYSTEM PUBLIC ${CMAKE_SOURCE_DIR}/metal-cpp-library
 )
 
@@ -58,12 +68,19 @@ target_link_libraries(NormalisationProfiler
   ${APPLE_FWK_QUARTZ_CORE}
   ${APPLE_FWK_METAL}
 )
+target_link_libraries(AlgorithmTester 
+  glfw
+  ${APPLE_FWK_FOUNDATION}
+  ${APPLE_FWK_QUARTZ_CORE}
+  ${APPLE_FWK_METAL}
+)
 
 
 # Define PROJECT_BASE_PATH for use in the code
 set(PROJECT_BASE_PATH "${CMAKE_SOURCE_DIR}")
 target_compile_definitions(Project PRIVATE PROJECT_BASE_PATH="${PROJECT_BASE_PATH}")
 target_compile_definitions(NormalisationProfiler PRIVATE PROJECT_BASE_PATH="${PROJECT_BASE_PATH}")
+target_compile_definitions(AlgorithmTester PRIVATE PROJECT_BASE_PATH="${PROJECT_BASE_PATH}")
 
 # Compile metal shaders to a metallib file
 set(METAL_SHADER_SRC ${CMAKE_SOURCE_DIR}/metal-shaders/kernels.metal)
@@ -88,3 +105,4 @@ add_custom_target(
 )
 add_dependencies(Project MetalLibrary)
 add_dependencies(NormalisationProfiler MetalLibrary)
+add_dependencies(AlgorithmTester MetalLibrary)

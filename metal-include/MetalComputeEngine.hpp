@@ -54,8 +54,22 @@ protected:
   MTL::Device* device;
   MTL::Library* defaultLibrary;
   MTL::CommandQueue* commandQueue;
+
+  MTL::Buffer* offsetsBuffer;
+  MTL::Buffer* colsBuffer;
+  MTL::Buffer* valsBuffer;
+  MTL::Buffer* sinogramBuffer;
+  MTL::Buffer* reconstructedBuffer;
+  MTL::Buffer* phantomBuffer;
+
   MetalUtilities* metalUtils;
   Geometry geom;
+
+  /**
+   * @brief Initialise the phantom data by flipping it vertically and calculating its norm.
+   * @param phantomData The input phantom image data as a flat vector.
+   */
+  void initialisePhantom(std::vector<float>& phantomData);
 
   /**
    * @brief Find the maximum value in a Metal texture and store it in a buffer.
@@ -72,13 +86,6 @@ protected:
   void normaliseTexture(MTL::Texture* texture, float maxValue);
 
 private:
-  MTL::Buffer* offsetsBuffer;
-  MTL::Buffer* colsBuffer;
-  MTL::Buffer* valsBuffer;
-  MTL::Buffer* sinogramBuffer;
-  MTL::Buffer* reconstructedBuffer;
-  MTL::Buffer* phantomBuffer;
-
   MTL::Texture* reconstructedTexture;
   MTL::Texture* sinogramTexture;
   MTL::Texture* originalPhantomTexture;
@@ -87,11 +94,5 @@ private:
   size_t totalNonZeroElements;
   float totalWeightSum;
   double phantomNorm;
-
-  /**
-   * @brief Initialise the phantom data by flipping it vertically and calculating its norm.
-   * @param phantomData The input phantom image data as a flat vector.
-   */
-  void initialisePhantom(std::vector<float>& phantomData);
 };
 #endif  // MTLCOMPUTEENGINE_HPP
