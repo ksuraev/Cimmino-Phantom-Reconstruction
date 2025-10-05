@@ -36,11 +36,6 @@ projector_id = astra.create_projector('strip', proj_geom, vol_geom)
 matrix_id = astra.projector.matrix(projector_id)
 A_csr = astra.matrix.get(matrix_id)
 
-# Print dimensions and number of non-zeros
-print(f"Sparse matrix shape: {A_csr.shape}")
-print(f"Number of non-zero entries: {A_csr.nnz}")
-
-
 with open(output_filename, "wb") as f:
     # Get dimensions and nnz
     num_rows, num_cols = A_csr.shape
