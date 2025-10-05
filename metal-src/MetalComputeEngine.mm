@@ -10,8 +10,8 @@
  * metal-shaders/kernels.metal for Metal shader implementations.
  */
 
-#include "../metal-include/MetalComputeEngine.hpp"
-#include "../metal-include/MetalUtilities.hpp"
+#include "MetalComputeEngine.hpp"
+#include "MetalUtilities.hpp"
 
 MTLComputeEngine::MTLComputeEngine(MetalContext &context, const Geometry &geom)
     : geom(geom), totalRays(geom.nAngles * geom.nDetectors) {
@@ -67,7 +67,7 @@ void MTLComputeEngine::initialisePhantom(std::vector<float> &phantomData) {
     for (const auto &val : flippedPhantomData) {
         phantomNormSum += val * val;
     }
-    phantomNorm = (double)sqrt(phantomNormSum);
+    phantomNorm = static_cast<double>(sqrt(phantomNormSum));
 
     // Create texture and buffer for phantom
     originalPhantomTexture = metalUtils->createTexture(geom.imageWidth, geom.imageHeight, MTL::PixelFormatR32Float,

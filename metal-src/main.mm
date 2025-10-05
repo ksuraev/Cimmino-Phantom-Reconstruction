@@ -1,5 +1,5 @@
-#include "../metal-include/MetalComputeEngine.hpp"
-#include "../metal-include/MetalRenderEngine.hpp"
+#include "MetalComputeEngine.hpp"
+#include "MetalRenderEngine.hpp"
 
 constexpr int IMAGE_WIDTH = 256;
 constexpr int IMAGE_HEIGHT = 256;

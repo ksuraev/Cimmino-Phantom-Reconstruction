@@ -1,7 +1,7 @@
 // This program is used to test the execution time of sinogram normalisation using Metal in isolation.
 // Results logged to normalisation_log.csv
 
-#include "../metal-include/NormalisationProfiler.hpp"
+#include "NormalisationProfiler.hpp"
 
 constexpr int IMAGE_WIDTH = 4096;
 constexpr int IMAGE_HEIGHT = 4096;

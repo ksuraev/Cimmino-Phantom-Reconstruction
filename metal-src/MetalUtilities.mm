@@ -1,46 +1,39 @@
 // Implementation of Metal utility functions for setting up and managing Metal resources.
 
-#include "../metal-include/MetalUtilities.hpp"
+#include "MetalUtilities.hpp"
 
 MetalUtilities::MetalUtilities(MTL::Device* device, MTL::Library* library, MTL::CommandQueue* commandQueue)
     : device(device), defaultLibrary(library), commandQueue(commandQueue) {
-    if (!device || !defaultLibrary || !commandQueue) {
+    if (!device || !defaultLibrary || !commandQueue)
         throw std::runtime_error("Invalid Metal context provided to MetalUtilities.");
-    }
 }
 
 MTL::Function* MetalUtilities::createKernelFn(const char* functionName, MTL::Library* library) {
     MTL::Function* fn = library->newFunction(NS::String::string(functionName, NS::UTF8StringEncoding));
-    if (!fn) {
-        std::cerr << "Failed to find kernel " << functionName << " in the library." << std::endl;
-        std::exit(-1);
-    }
+    if (!fn) throw std::runtime_error("Failed to create kernel function " + std::string(functionName));
     return fn;
 }
 
 MTL::ComputePipelineState* MetalUtilities::createComputePipeline(MTL::Function* function) {
     NS::Error* error = nullptr;
     MTL::ComputePipelineState* pipeline = device->newComputePipelineState(function, &error);
-    if (!pipeline) {
-        std::cerr << "Error: Failed to create pipeline state. " << pipeline->label() << " "
-                  << error->localizedDescription()->utf8String() << std::endl;
-        std::exit(-1);
-    }
+    if (!pipeline)
+        throw std::runtime_error(
+            "Error: Failed to create pipeline state. " +
+            (pipeline->label() ? std::string(pipeline->label()->utf8String()) : "Unnamed Pipeline") + " " +
+            (error ? std::string(error->localizedDescription()->utf8String()) : "Unknown Error"));
     function->release();
     return pipeline;
 }
 
 MTL::Buffer* MetalUtilities::createBuffer(size_t size, MTL::ResourceOptions options, void* data) {
     MTL::Buffer* buffer = nullptr;
-    if (data) {
+    if (data)
         buffer = device->newBuffer(data, size, options);
-    } else {
+    else
         buffer = device->newBuffer(size, options);
-    }
-    if (!buffer) {
-        std::cerr << "Error: Failed to create buffer of size " << size << std::endl;
-        std::exit(-1);
-    }
+
+    if (!buffer) throw std::runtime_error("Error: Failed to create buffer of size " + std::to_string(size));
     return buffer;
 }
 
@@ -53,11 +46,7 @@ MTL::Texture* MetalUtilities::createTexture(uint width, uint height, MTL::PixelF
 
     // Create the texture
     MTL::Texture* texture = device->newTexture(textureDesc);
-    if (!texture) {
-        std::cerr << "Error: Failed to create texture of size " << width << "x" << height << std::endl;
-        exit(-1);
-    }
-
+    if (!texture) throw std::runtime_error("Error: Failed to create texture.");
     return texture;
 }
 

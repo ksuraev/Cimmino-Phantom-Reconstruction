@@ -1,7 +1,5 @@
 // Metal Shading Language (MSL) code for GPU image reconstruction and processing
 #include <metal_stdlib>
-#include <simd/simd.h>
-#include <metal_simdgroup>
 using namespace metal;
 
 // Geometry structure to hold imaging/scanner parameters
@@ -60,7 +58,6 @@ kernel void findMaxInTexture(
     device atomic_uint* maxValue [[buffer(0)]],
     uint2 gid [[thread_position_in_grid]]
 ) {
-    // Check if the thread is out of bounds
     if (gid.x >= inputTexture.get_width() || gid.y >= inputTexture.get_height()) return;
     
     // Read the pixel value from the texture
@@ -136,8 +133,6 @@ kernel void applyUpdate(device float* reconstructedBuffer [[buffer(0)]],
                         constant uint& numPixels [[buffer(5)]],
                         uint gid [[thread_position_in_grid]]) {
   if (gid >= numPixels) return;
-
-  // Apply the update to the reconstructed buffer
   reconstructedBuffer[gid] += updateBuffer[gid];
 }
 
@@ -146,7 +141,6 @@ kernel void computeRelativeDifference(const device float* reconstructedBuffer [[
                                     const device float* phantomBuffer [[buffer(1)]],
                                     device atomic_float* differenceSumBuffer [[buffer(2)]],
                                     uint gid [[thread_position_in_grid]]) {
-  // Compute the difference between the reconstruction and the phantom
   float currentValue = reconstructedBuffer[gid];
   float phantomValue = phantomBuffer[gid];
   float difference = currentValue - phantomValue;
@@ -181,7 +175,7 @@ fragment float4 fragment_main(VertexOut in [[stage_in]],
   // Sample the image texture
   constexpr sampler s(coord::normalized, address::clamp_to_edge, filter::nearest);
 
-  float value = imageTexture.sample(s, in.texCoord).r;  // 0..1
+  float value = imageTexture.sample(s, in.texCoord).r;
 
   // Map single channel to colourmap texture
   float2 colourMapUV = float2(value, 0.5); 

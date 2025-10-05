@@ -27,8 +27,8 @@ add_executable(NormalisationProfiler
     ${PROJECT_SOURCES}
 )
 
-target_include_directories(Project PRIVATE ${CMAKE_SOURCE_DIR}/metal-include)
-target_include_directories(NormalisationProfiler PRIVATE ${CMAKE_SOURCE_DIR}/metal-include)
+target_include_directories(Project PUBLIC ${CMAKE_SOURCE_DIR}/metal-include)
+target_include_directories(NormalisationProfiler PUBLIC ${CMAKE_SOURCE_DIR}/metal-include)
 
 # Find and include GLFW and Apple frameworks
 find_package(glfw3 REQUIRED)

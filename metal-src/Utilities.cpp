@@ -2,7 +2,7 @@
  * @file Utilities.cpp
  * @brief Utility functions for loading/saving data and logging performance metrics.
  */
-#include "../metal-include/Utilities.hpp"
+#include "Utilities.hpp"
 
 bool loadSparseMatrixBinary(const std::string& filename, SparseMatrix& matrix, SparseMatrixHeader& header) {
     std::ifstream inFile(filename, std::ios::binary);
@@ -24,15 +24,11 @@ bool loadSparseMatrixBinary(const std::string& filename, SparseMatrix& matrix, S
         return false;
     }
 
-    // Read rows array
+    // Read rows, cols and vals
     matrix.rows.resize(header.num_rows + 1);
     inFile.read(reinterpret_cast<char*>(matrix.rows.data()), matrix.rows.size() * sizeof(int));
-
-    // Read cols array
     matrix.cols.resize(header.num_non_zero);
     inFile.read(reinterpret_cast<char*>(matrix.cols.data()), matrix.cols.size() * sizeof(int));
-
-    // Read vals array
     matrix.vals.resize(header.num_non_zero);
     inFile.read(reinterpret_cast<char*>(matrix.vals.data()), matrix.vals.size() * sizeof(float));
 
@@ -42,10 +38,8 @@ bool loadSparseMatrixBinary(const std::string& filename, SparseMatrix& matrix, S
 
 std::vector<float> loadPhantom(const std::string& filename, const Geometry& geom) {
     std::ifstream file(filename);
-    if (!file.is_open()) {
-        std::cerr << "Error: Could not open phantom file " << filename << std::endl;
-        exit(-1);
-    }
+    if (!file.is_open()) throw std::runtime_error("Could not open phantom file " + filename);
+
     std::vector<float> phantomData;
     float value;
     while (file >> value) {
@@ -54,29 +48,7 @@ std::vector<float> loadPhantom(const std::string& filename, const Geometry& geom
     file.close();
 
     size_t expectedSize = geom.imageWidth * geom.imageHeight;
-    if (phantomData.size() != expectedSize) {
-        std::cerr << "Error: Phantom size mismatch. Expected " << expectedSize << " values, but file contains " << phantomData.size() << " values." << std::endl;
-        exit(-1);
-    }
-    return phantomData;
-}
-
-std::vector<float> loadPhantomBinary(const char* filename, const Geometry& geom) {
-    std::ifstream file(filename, std::ios::binary);
-    if (!file.is_open()) {
-        std::cerr << "Error: Could not open phantom file " << filename << std::endl;
-        exit(-1);
-    }
-
-    size_t expectedSize = geom.imageWidth * geom.imageHeight;
-    std::vector<float> phantomData(expectedSize);
-
-    file.read(reinterpret_cast<char*>(phantomData.data()), expectedSize * sizeof(float));
-    if (!file) {
-        std::cerr << "Error: Failed to read phantom file " << filename << std::endl;
-        exit(-1);
-    }
-
+    if (phantomData.size() != expectedSize) throw std::runtime_error("Phantom size mismatch. Expected " + std::to_string(expectedSize) + " values, but file contains " + std::to_string(phantomData.size()) + " values.");
     return phantomData;
 }
 
@@ -137,7 +109,6 @@ std::vector<float> flipImageVertically(const std::vector<float>& originalData, i
     return flippedData;
 }
 
-
 void logPerformance(
     const Geometry& geom, const int numIterations,
     const double scanTime,
@@ -147,7 +118,6 @@ void logPerformance(
     const std::string& filename) {
     std::ofstream logFile;
 
-    // Check if the file already exists 
     std::ifstream fileExists(filename);
     bool writeHeader = !fileExists.good();
     fileExists.close();

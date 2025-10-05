@@ -5,10 +5,9 @@
  * This class handles the setup of a GLFW window with a CAMetalLayer,
  * creation of the Metal render pipeline, and rendering of textures.
  */
-#include "../metal-include/MetalRenderEngine.hpp"
+#include "MetalRenderEngine.hpp"
 
 MTLRenderEngine::MTLRenderEngine(MetalContext &context) {
-    // Initialise Metal objects
     device = context.getDevice();
     commandQueue = context.getCommandQueue();
     library = context.getLibrary();

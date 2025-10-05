@@ -2,7 +2,7 @@
 // For testing of normalisation performance
 
 #include "NormalisationProfiler.hpp"
-#include "../metal-include/MetalUtilities.hpp"
+#include "MetalUtilities.hpp"
 
 NormalisationProfiler::NormalisationProfiler(MetalContext &context, const Geometry &geom)
     : MTLComputeEngine(context, geom) {}

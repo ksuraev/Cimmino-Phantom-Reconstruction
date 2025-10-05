@@ -238,10 +238,6 @@ int main(int argc, const char* argv[]) {
         computeSinogram(phantom, projector, totalRays, sinogram);
         });
     std::cout << "Sinogram computation time (ms): " << scanTime << std::endl;
-    // if (!loadSinogram(basePath + "data/sinogram_256.txt", sinogram)) {
-    //     std::cerr << "Failed to load sinogram." << std::endl;
-    //     return -1;
-    // }
 
     // Precompute phantom norm for error calculation
     double phantomNorm = 0.0;
