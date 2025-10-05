@@ -13,12 +13,12 @@
 #import <GLFW/glfw3.h>
 #define GLFW_EXPOSE_NATIVE_COCOA
 #import <GLFW/glfw3native.h>
+#import <QuartzCore/CAMetalLayer.h>
 #endif
 
-#include <QuartzCore/CAMetalLayer.h>
 #include <QuartzCore/QuartzCore.hpp>
-#include "MetalContext.hpp"
 
+#include "MetalContext.hpp"
 #include "Utilities.hpp"
 #include "MetalUtilities.hpp"
 
