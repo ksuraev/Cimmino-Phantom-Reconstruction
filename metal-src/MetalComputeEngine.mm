@@ -13,8 +13,7 @@
 #include "MetalComputeEngine.hpp"
 #include "MetalUtilities.hpp"
 
-MTLComputeEngine::MTLComputeEngine(MetalContext &context, const Geometry &geom)
-    : geom(geom), totalRays(geom.nAngles * geom.nDetectors) {
+MTLComputeEngine::MTLComputeEngine(MetalContext &context, const Geometry &geom) : geom(geom), totalRays(geom.nAngles * geom.nDetectors) {
     // Initialise metal context
     device = context.getDevice();
     commandQueue = context.getCommandQueue();
@@ -40,12 +39,9 @@ void MTLComputeEngine::loadProjectionMatrix(const std::string &projectionFileNam
         throw std::runtime_error("Error: Cols or Vals size does not match total non-zero elements.");
 
     // Load into projection matrix CSR metal buffers
-    offsetsBuffer = metalUtils->createBuffer((matrix.rows.size()) * sizeof(int), MTL::ResourceStorageModeShared,
-                                             matrix.rows.data());
-    colsBuffer =
-        metalUtils->createBuffer(matrix.cols.size() * sizeof(int), MTL::ResourceStorageModeShared, matrix.cols.data());
-    valsBuffer = metalUtils->createBuffer(matrix.vals.size() * sizeof(float), MTL::ResourceStorageModeShared,
-                                          matrix.vals.data());
+    offsetsBuffer = metalUtils->createBuffer((matrix.rows.size()) * sizeof(int), MTL::ResourceStorageModeShared, matrix.rows.data());
+    colsBuffer = metalUtils->createBuffer(matrix.cols.size() * sizeof(int), MTL::ResourceStorageModeShared, matrix.cols.data());
+    valsBuffer = metalUtils->createBuffer(matrix.vals.size() * sizeof(float), MTL::ResourceStorageModeShared, matrix.vals.data());
 
     // Calculate total row weight sum for Cimmino's algorithm
     totalWeightSum = 0.0F;
@@ -70,10 +66,10 @@ void MTLComputeEngine::initialisePhantom(std::vector<float> &phantomData) {
     phantomNorm = static_cast<double>(sqrt(phantomNormSum));
 
     // Create texture and buffer for phantom
-    originalPhantomTexture = metalUtils->createTexture(geom.imageWidth, geom.imageHeight, MTL::PixelFormatR32Float,
-                                                       MTL::TextureUsageShaderRead);
-    phantomBuffer = metalUtils->createBuffer(flippedPhantomData.size() * sizeof(float), MTL::ResourceStorageModeShared,
-                                             flippedPhantomData.data());
+    originalPhantomTexture =
+        metalUtils->createTexture(geom.imageWidth, geom.imageHeight, MTL::PixelFormatR32Float, MTL::TextureUsageShaderRead);
+    phantomBuffer =
+        metalUtils->createBuffer(flippedPhantomData.size() * sizeof(float), MTL::ResourceStorageModeShared, flippedPhantomData.data());
 
     // Load original phantom data into texture
     MTL::Region region = MTL::Region::Make2D(0, 0, geom.imageWidth, geom.imageHeight);
@@ -203,8 +199,8 @@ void MTLComputeEngine::normaliseTexture(MTL::Texture *texture, float maxValue) {
     cmdBuffer->waitUntilCompleted();
 }
 
-double MTLComputeEngine::reconstructImage(int numIterations, double &relativeErrorNorm,
-                                          const double relativeErrorThreshold, const int errorCheckInterval) {
+double MTLComputeEngine::reconstructImage(int numIterations, double &relativeErrorNorm, const double relativeErrorThreshold,
+                                          const int errorCheckInterval) {
     auto startTimeTotal = std::chrono::high_resolution_clock::now();
 
     // Initialise kernel functions and pipelines
@@ -285,8 +281,7 @@ double MTLComputeEngine::reconstructImage(int numIterations, double &relativeErr
             relativeErrorNorm = sqrt(static_cast<double>(*differenceSum)) / phantomNorm;
 
             if (relativeErrorNorm < relativeErrorThreshold) {
-                std::cout << "Converged after " << (i + 1) << " iterations with relative error norm "
-                          << relativeErrorNorm << std::endl;
+                std::cout << "Converged after " << (i + 1) << " iterations with relative error norm " << relativeErrorNorm << std::endl;
                 break;
             }
             memset(differenceSumBuffer->contents(), 0, sizeof(float));
@@ -296,20 +291,18 @@ double MTLComputeEngine::reconstructImage(int numIterations, double &relativeErr
     auto endTime = std::chrono::high_resolution_clock::now();
     std::chrono::duration<double, std::milli> totalReconstructTime = endTime - startTime;
 
-    std::cout << "Reconstruction time for " << numIterations << " iterations " << totalReconstructTime.count() << " ms"
-              << std::endl;
+    std::cout << "Reconstruction time for " << numIterations << " iterations " << totalReconstructTime.count() << " ms" << std::endl;
 
     // Copy reconstructed buffer into texture using blit encoder
-    reconstructedTexture =
-        metalUtils->createTexture(width, height, MTL::PixelFormatR32Float, MTL::TextureUsageShaderRead);
+    reconstructedTexture = metalUtils->createTexture(width, height, MTL::PixelFormatR32Float, MTL::TextureUsageShaderRead);
     cmdBuffer = commandQueue->commandBuffer();
     metalUtils->copyBufferToTexture(cmdBuffer, reconstructedBuffer, reconstructedTexture, width, height);
     cmdBuffer->commit();
     cmdBuffer->waitUntilCompleted();
 
     // Save reconstructed texture to file
-    std::string imageFileName = std::string(PROJECT_BASE_PATH) + "/metal-data/metal_" + std::to_string(numIterations) +
-                                "_" + std::to_string(geom.imageWidth) + ".txt";
+    std::string imageFileName = std::string(PROJECT_BASE_PATH) + "/metal-data/metal_" + std::to_string(numIterations) + "_" +
+                                std::to_string(geom.imageWidth) + ".txt";
     metalUtils->saveTextureToFile(imageFileName, reconstructedTexture);
 
     auto endTimeTotal = std::chrono::high_resolution_clock::now();

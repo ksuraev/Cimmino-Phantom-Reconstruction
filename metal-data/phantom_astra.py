@@ -10,7 +10,7 @@ import numpy as np
 script_dir = os.path.dirname(os.path.realpath(__file__))
 
 # Define the volume geometry
-image_size = 512
+image_size = 256
 vol_geom = astra.create_vol_geom(image_size, image_size)
 
 # File to save the projection matrix - must be saved in metal-data directory

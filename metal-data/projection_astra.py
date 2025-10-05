@@ -22,10 +22,7 @@ vol_geom = astra.create_vol_geom(image_size, image_size)
 output_filename = os.path.join(script_dir, "projection_" + str(image_size) + ".bin")
 
 # Define projection geometry
-# Number of detectors is based on image size
 num_detectors = int(np.ceil(2 * np.sqrt(2) * image_size))
-
-# Print number of detectors
 print(f"Number of detectors: {num_detectors}")
 
 # Set number of angles and angle total degrees
@@ -36,7 +33,6 @@ proj_geom = astra.create_proj_geom(
 
 # Create projector
 projector_id = astra.create_projector('strip', proj_geom, vol_geom)
-
 matrix_id = astra.projector.matrix(projector_id)
 A_csr = astra.matrix.get(matrix_id)
 
