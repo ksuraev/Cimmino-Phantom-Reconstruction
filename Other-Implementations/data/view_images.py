@@ -83,7 +83,7 @@ if __name__ == "__main__":
         "image_seq_10.txt",
         "image_seq_100.txt",
         "image_seq_500.txt",
-        "sinogram_seq_4096.txt"
+        "sinogram_seq_256.txt"
     ]
 
     # Display all images in one window
