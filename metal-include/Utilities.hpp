@@ -71,8 +71,8 @@ std::vector<float> loadPhantom(const std::string& filename, const Geometry& geom
 std::vector<float> loadColourMapTexture(const std::string& filename);
 
 /**
- * @brief Load sinogram data from a binary file into a vector.
- * @param filename The name of the binary file containing the sinogram data.
+ * @brief Load sinogram data from a txt file into a vector.
+ * @param filename The name of the txt file containing the sinogram data.
  * @param sinogram The vector to be filled with the loaded sinogram data.
  * @param numRays The number of rays (size of the sinogram).
  * @return True if the sinogram was successfully loaded, false otherwise.
