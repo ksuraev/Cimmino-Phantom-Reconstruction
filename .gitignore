@@ -116,3 +116,4 @@ projection_1024.bin
 Other-Implementations/data/*.txt
 combinefiles.py
 submission_combined.cpp
+gpu-profiler.trace
