@@ -19,8 +19,8 @@
 #include <QuartzCore/QuartzCore.hpp>
 
 #include "MetalContext.hpp"
-#include "Utilities.hpp"
 #include "MetalUtilities.hpp"
+#include "Utilities.hpp"
 
 class MTLRenderEngine {
 public:
@@ -68,7 +68,6 @@ public:
     void setOriginalPhantomTexture(MTL::Texture* texture) { originalPhantomTexture = texture; }
 
 private:
-
     MTL::Device* device;
     MTL::Library* library;
     MTL::CommandQueue* commandQueue;

@@ -50,7 +50,9 @@ void MTLRenderEngine::frameBufferSizeCallback(GLFWwindow *window, int width, int
     engine->resizeFrameBuffer(width, height);
 }
 
-void MTLRenderEngine::resizeFrameBuffer(int width, int height) { metalLayer.drawableSize = CGSizeMake(width, height); }
+void MTLRenderEngine::resizeFrameBuffer(int width, int height) {
+    metalLayer.drawableSize = CGSizeMake(width, height);
+}
 
 CA::MetalDrawable *MTLRenderEngine::getNextDrawable(CAMetalLayer *nativeLayer) {
     // Call the native Objective-C method
