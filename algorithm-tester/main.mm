@@ -1,6 +1,7 @@
 // Used to test the algorithm accuracy with a known solution
 // Using a small 32x32 image and 90 angles for quick testing
-// Solution stored in solution_*.txt files with * being the iteration number
+// Reconstructed solutions stored in solution_*.txt files with * being the iteration number
+// Sinogram solutions stored in sino_sol_*.txt files with * being the image size
 
 #include "AlgorithmTester.hpp"
 
@@ -8,7 +9,7 @@ constexpr int IMAGE_SIZE = 32;
 constexpr int NUM_ANGLES = 90;
 
 int main(int argc, char **argv) {
-    int numIterations = 10;
+    int numIterations = 1;
     if (argc > 1) numIterations = std::atoi(argv[1]);
     try {
         NS::AutoreleasePool *pPool = NS::AutoreleasePool::alloc()->init();
@@ -21,6 +22,10 @@ int main(int argc, char **argv) {
 
         AlgorithmTester AlgorithmTester(context, geom);
 
+        // Run sinogram computation test
+        AlgorithmTester.testSinogramComputation(geom);
+
+        // Run the reconstruction test
         double finalErrorNorm = 0.0;
         AlgorithmTester.testReconstruction(geom, numIterations, finalErrorNorm);
 
