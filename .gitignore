@@ -117,3 +117,4 @@ Other-Implementations/data/*.txt
 combinefiles.py
 submission_combined.cpp
 gpu-profiler.trace
+Doc/videolink.pdf
