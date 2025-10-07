@@ -3,7 +3,7 @@
 
 constexpr int IMAGE_WIDTH = 256;
 constexpr int IMAGE_HEIGHT = 256;
-constexpr int NUM_ANGLES = 90;
+constexpr int NUM_ANGLES = 360;
 
 constexpr const char PROJECTION_MATRIX_FILE[] = "/metal-data/projection_256.bin";
 constexpr const char PHANTOM_FILE[] = "/metal-data/phantom_256.txt";
@@ -41,16 +41,19 @@ int main(int argc, char **argv) {
         double finalErrorNorm = 0.0;
         auto totalReconstructTime = mtlComputeEngine.reconstructImage(numIterations, finalErrorNorm);
 
-        MTLRenderEngine mtlRenderEngine = MTLRenderEngine(context);
+        // MTLRenderEngine mtlRenderEngine = MTLRenderEngine(context);
 
-        // Get textures from metal compute engine and render with metal render engine
-        mtlRenderEngine.setSinogramTexture(mtlComputeEngine.getSinogramTexture());
-        mtlRenderEngine.setReconstructedTexture(mtlComputeEngine.getReconstructedTexture());
-        mtlRenderEngine.setOriginalPhantomTexture(mtlComputeEngine.getOriginalPhantomTexture());
-        mtlRenderEngine.render();
+        // // // Get textures from metal compute engine and render with metal render engine
+        // mtlRenderEngine.setSinogramTexture(mtlComputeEngine.getSinogramTexture());
+        // mtlRenderEngine.setReconstructedTexture(mtlComputeEngine.getReconstructedTexture());
+        // mtlRenderEngine.setOriginalPhantomTexture(mtlComputeEngine.getOriginalPhantomTexture());
+        // mtlRenderEngine.render();
 
-        logPerformance(geom, numIterations, projectionTime, scanTime, totalReconstructTime, finalErrorNorm,
-                       std::string(PROJECT_BASE_PATH) + LOG_FILE);
+        // logPerformance(geom, numIterations, projectionTime, scanTime, totalReconstructTime, finalErrorNorm,
+        //                std::string(PROJECT_BASE_PATH) + LOG_FILE);
+        double relaxationFactor = 280.0;
+        logRelaxationExperiment(geom, numIterations, relaxationFactor, finalErrorNorm, totalReconstructTime,
+                                std::string(PROJECT_BASE_PATH) + "/metal-logs/relaxation_experiment_log.csv");
 
         pPool->release();
     } catch (const std::exception &e) {
