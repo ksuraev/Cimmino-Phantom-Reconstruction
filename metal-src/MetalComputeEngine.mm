@@ -38,17 +38,23 @@ void MTLComputeEngine::loadProjectionMatrix(const std::string &projectionFileNam
     if (matrix.cols.size() != totalNonZeroElements || matrix.vals.size() != totalNonZeroElements)
         throw std::runtime_error("Error: Cols or Vals size does not match total non-zero elements.");
 
-    // Preconditions values by normalising each row to unit norm
+    // Precondition values by normalising each row to unit norm
+    totalWeightSum = 0.0F;
     for (size_t i = 0; i < totalRays; ++i) {
         double rowNormSq = 0.0;
+
+        // Compute the squared norm of the row
         for (size_t j = matrix.rows[i]; j < matrix.rows[i + 1]; ++j) {
             rowNormSq += static_cast<double>(matrix.vals[j] * matrix.vals[j]);
         }
+
         float rowNorm = static_cast<float>(sqrt(rowNormSq));
         if (rowNorm > 0.0F) {
+            // Normalise the row and accumulate the normalised weight sum
             for (size_t j = matrix.rows[i]; j < matrix.rows[i + 1]; ++j) {
                 matrix.vals[j] /= rowNorm;
             }
+            totalWeightSum += 1.0F;  // Each normalised row has unit norm
         }
     }
 
@@ -56,16 +62,6 @@ void MTLComputeEngine::loadProjectionMatrix(const std::string &projectionFileNam
     offsetsBuffer = metalUtils->createBuffer((matrix.rows.size()) * sizeof(int), MTL::ResourceStorageModeShared, matrix.rows.data());
     colsBuffer = metalUtils->createBuffer(matrix.cols.size() * sizeof(int), MTL::ResourceStorageModeShared, matrix.cols.data());
     valsBuffer = metalUtils->createBuffer(matrix.vals.size() * sizeof(float), MTL::ResourceStorageModeShared, matrix.vals.data());
-
-    // Calculate total row weight sum for Cimmino's algorithm
-    totalWeightSum = 0.0F;
-    for (size_t i = 0; i < totalRays; ++i) {
-        double rowNormSq = 0.0;
-        for (size_t j = matrix.rows[i]; j < matrix.rows[i + 1]; ++j) {
-            rowNormSq += static_cast<double>(matrix.vals[j] * matrix.vals[j]);
-        }
-        totalWeightSum += static_cast<float>(rowNormSq);
-    }
 }
 
 void MTLComputeEngine::initialisePhantom(std::vector<float> &phantomData) {
@@ -213,8 +209,8 @@ void MTLComputeEngine::normaliseTexture(MTL::Texture *texture, float maxValue) {
     cmdBuffer->waitUntilCompleted();
 }
 
-double MTLComputeEngine::reconstructImage(int numIterations, double &relativeErrorNorm, const double relativeErrorThreshold,
-                                          const int errorCheckInterval) {
+double MTLComputeEngine::reconstructImage(int numIterations, double &relativeErrorNorm, const float relaxationParameter,
+                                          const double relativeErrorThreshold, const int errorCheckInterval) {
     auto startTimeTotal = std::chrono::high_resolution_clock::now();
 
     // Initialise kernel functions and pipelines
@@ -260,6 +256,7 @@ double MTLComputeEngine::reconstructImage(int numIterations, double &relativeErr
         encoder->setBytes(&totalWeightSum, sizeof(float), 5);
         encoder->setBytes(&totalRays, sizeof(uint), 6);
         encoder->setBuffer(updateBuffer, 0, 7);
+        encoder->setBytes(&relaxationParameter, sizeof(float), 8);
         metalUtils->dispatchThreads(encoder, cimminoPipeline, totalRays);
         encoder->endEncoding();
 
@@ -268,7 +265,7 @@ double MTLComputeEngine::reconstructImage(int numIterations, double &relativeErr
         encoder->setComputePipelineState(applyUpdatePipeline);
         encoder->setBuffer(reconstructedBuffer, 0, 0);
         encoder->setBuffer(updateBuffer, 0, 1);
-        encoder->setBytes(&imageSize, sizeof(uint), 5);
+        encoder->setBytes(&imageSize, sizeof(uint), 2);
         metalUtils->dispatchThreads(encoder, applyUpdatePipeline, imageSize);
         encoder->endEncoding();
 

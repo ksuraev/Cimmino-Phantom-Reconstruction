@@ -43,7 +43,7 @@ public:
    * @param relativeErrorNorm Reference to store the norm of the final update for convergence analysis.
    * @return The time taken for the reconstruction in milliseconds.
    */
-  double reconstructImage(int numIterations, double& relativeErrorNorm, const double relativeErrorThreshold = 1e-2, const int errorCheckInterval = 50);
+  double reconstructImage(int numIterations, double& relativeErrorNorm, const float relaxationParameter, const double relativeErrorThreshold = 1e-2, const int errorCheckInterval = 50);
 
   // Getters to access textures from render engine
   MTL::Texture* getReconstructedTexture() const { return reconstructedTexture; }
