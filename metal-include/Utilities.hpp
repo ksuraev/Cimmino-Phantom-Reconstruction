@@ -104,6 +104,8 @@ void logPerformance(
     const double finalErrorNorm,
     const std::string& filename);
 
+void logRelaxationExperiment(Geometry& geom, int numIterations, float relaxationFactor, double finalErrorNorm, double reconstructionTime, const std::string& filename);
+
 /**
 * @brief Times the execution of a method and returns the duration in microseconds.
 * @param methodToTime The method to be timed.
