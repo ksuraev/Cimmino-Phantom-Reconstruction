@@ -1,6 +1,6 @@
 // Implementation of AlgorithmTester class for testing reconstruction and sinogram computation algorithms.
+
 #include "AlgorithmTester.hpp"
-#include <string>
 #include "MetalUtilities.hpp"
 
 AlgorithmTester::AlgorithmTester(MetalContext &context, const Geometry &geom) : MTLComputeEngine(context, geom) {}
