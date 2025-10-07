@@ -11,9 +11,12 @@ struct Geometry {
 };
 
 // Calculate the sinogram by projecting the phantom image to simulate the projection of rays through the image/phantom
-kernel void computeSinogram(const device float* phantom [[buffer(0)]], const device int* offsetsBuffer_A [[buffer(1)]],
-                            const device int* colsBuffer_A [[buffer(2)]], const device float* valsBuffer_A [[buffer(3)]],
-                            device float* sinogram [[buffer(4)]], constant uint& numRays [[buffer(5)]],
+kernel void computeSinogram(const device float* phantom [[buffer(0)]], 
+                            const device int* offsetsBuffer_A [[buffer(1)]],
+                            const device int* colsBuffer_A [[buffer(2)]], 
+                            const device float* valsBuffer_A [[buffer(3)]],
+                            device float* sinogram [[buffer(4)]], 
+                            constant uint& numRays [[buffer(5)]],
                             uint gid [[thread_position_in_grid]]) {
     uint rayIndex = gid;
     if (rayIndex >= numRays) return;
@@ -44,7 +47,8 @@ kernel void computeSinogram(const device float* phantom [[buffer(0)]], const dev
     sinogram[rayIndex] = dotProduct;
 }
 
-kernel void findMaxInTexture(texture2d<float, access::read> inputTexture [[texture(0)]], device atomic_uint* maxValue [[buffer(0)]],
+kernel void findMaxInTexture(texture2d<float, access::read> inputTexture [[texture(0)]], 
+                             device atomic_uint* maxValue [[buffer(0)]],
                              uint2 gid [[thread_position_in_grid]]) {
     if (gid.x >= inputTexture.get_width() || gid.y >= inputTexture.get_height()) return;
 
@@ -59,7 +63,8 @@ kernel void findMaxInTexture(texture2d<float, access::read> inputTexture [[textu
 }
 
 // Normalise the texture by dividing each pixel by the global maximum
-kernel void normaliseKernel(texture2d<float, access::read_write> inputTexture [[texture(0)]], constant float& maxValue [[buffer(0)]],
+kernel void normaliseKernel(texture2d<float, access::read_write> inputTexture [[texture(0)]], 
+                            constant float& maxValue [[buffer(0)]],
                             uint2 gid [[thread_position_in_grid]]) {
     if (gid.x >= inputTexture.get_width() || gid.y >= inputTexture.get_height()) return;
 
@@ -75,44 +80,6 @@ kernel void normaliseKernel(texture2d<float, access::read_write> inputTexture [[
     }
 }
 
-// kernel void cimminosReconstruction(const device float* reconstructedBuffer [[buffer(0)]],
-//                                    const device float* sinogramBuffer_b [[buffer(1)]], const device int* offsetsBuffer_A [[buffer(2)]],
-//                                    const device int* colsBuffer_A [[buffer(3)]], const device float* valsBuffer_A [[buffer(4)]],
-//                                    constant float& totalWeightSum [[buffer(5)]], constant uint& numRays [[buffer(6)]],
-//                                    device atomic_float* updateBuffer [[buffer(7)]], 
-//                                    const device float* vColBuffer [[buffer(8)]],
-//                                    uint gid [[thread_position_in_grid]]) {
-//     uint rayIndex = gid;
-//     if (rayIndex >= numRays) return;
-
-//     // Get row start and end for this ray
-//     int rowStart = offsetsBuffer_A[rayIndex];
-//     int rowEnd = offsetsBuffer_A[rayIndex + 1];
-
-//     // Compute the dot product for this ray
-//     float dotProduct = 0.0f;
-//     for (int i = rowStart; i < rowEnd; ++i) {
-//         dotProduct += valsBuffer_A[i] * reconstructedBuffer[colsBuffer_A[i]];
-//     }
-    
-//     // Compute residual and scaling factor
-//     float b_i = sinogramBuffer_b[rayIndex];
-//     float residual = b_i - dotProduct;
-//     const float tau = 1.50f;   // try 0.25, 0.5, 0.75, 1.0, 1.25
-//     float scalar = tau * (2.0f / (float)65536) * residual;
-
-//     // Back Project - Add this ray's contribution to the update buffer
-//     for (int i = rowStart; i < rowEnd; ++i) {
-//         int pixelIndex = colsBuffer_A[i];
-//         float weight = valsBuffer_A[i];
-//         float contribution = scalar * weight * vColBuffer[pixelIndex];
-
-//         // Atomically add the contribution to prevent race conditions
-//         atomic_fetch_add_explicit(&updateBuffer[pixelIndex], contribution, memory_order_relaxed);
-//     }
-// }
-
-
 // Pass 1 of Cimmino's algorithm:
 kernel void cimminosReconstruction(const device float* reconstructedBuffer [[buffer(0)]],
                                    const device float* sinogramBuffer_b [[buffer(1)]], 
@@ -122,6 +89,7 @@ kernel void cimminosReconstruction(const device float* reconstructedBuffer [[buf
                                    constant float& totalWeightSum [[buffer(5)]], 
                                    constant uint& numRays [[buffer(6)]],
                                    device atomic_float* updateBuffer [[buffer(7)]], 
+                                   constant float& relaxFactor [[buffer(8)]],
                                    uint gid [[thread_position_in_grid]]) {
     uint rayIndex = gid;
     if (rayIndex >= numRays) return;
@@ -139,7 +107,7 @@ kernel void cimminosReconstruction(const device float* reconstructedBuffer [[buf
     // Compute residual and scaling factor (b_i - A_i^T x^k)
     float b_i = sinogramBuffer_b[rayIndex];
     float residual = b_i - dotProduct;
-    float scalar =  280.0f * (2.0f / totalWeightSum) * residual;
+    float scalar = relaxFactor * (2.0f / totalWeightSum) * residual;
 
     // Back Project - Add this ray's contribution to the update buffer
     for (int i = rowStart; i < rowEnd; ++i) {
@@ -152,22 +120,21 @@ kernel void cimminosReconstruction(const device float* reconstructedBuffer [[buf
     }
 }
 
-// Pass 2 of Cimmino's algorithm: apply the update to the reconstructed image
-kernel void applyUpdate(device float* reconstructedBuffer [[buffer(0)]], const device float* updateBuffer [[buffer(1)]],
-                        constant uint& numPixels [[buffer(5)]], uint gid [[thread_position_in_grid]]) {
+// Pass 2 of Cimmino's algorithm: // Add the update to the reconstructed image with non-negativity constraint
+kernel void applyUpdate(device float* reconstructedBuffer [[buffer(0)]], 
+                        const device float* updateBuffer [[buffer(1)]],
+                        constant uint& numPixels [[buffer(2)]], 
+                        uint gid [[thread_position_in_grid]]) {
     if (gid >= numPixels) return;
-    // Add small regularisation to prevent negative values creeping in
-    if (reconstructedBuffer[gid] + updateBuffer[gid] < 0.0f) {
-        reconstructedBuffer[gid] = 0.0f;
-    } else {
-        reconstructedBuffer[gid] += updateBuffer[gid];
-    }
+    if (reconstructedBuffer[gid] + updateBuffer[gid] < 0.0f) reconstructedBuffer[gid] = 0.0f;
+    else reconstructedBuffer[gid] += updateBuffer[gid];
 }
 
 // Compute the relative difference between the reconstruction and the phantom
 kernel void computeRelativeDifference(const device float* reconstructedBuffer [[buffer(0)]],
                                       const device float* phantomBuffer [[buffer(1)]],
-                                      device atomic_float* differenceSumBuffer [[buffer(2)]], uint gid [[thread_position_in_grid]]) {
+                                      device atomic_float* differenceSumBuffer [[buffer(2)]], 
+                                      uint gid [[thread_position_in_grid]]) {
     float currentValue = reconstructedBuffer[gid];
     float phantomValue = phantomBuffer[gid];
     float difference = currentValue - phantomValue;
@@ -194,7 +161,8 @@ vertex VertexOut vertex_main(uint vid [[vertex_id]]) {
 
 // A fragment shader that samples from the image texture and maps it to a colourmap
 // Source https://metaltutorial.com/Lesson%201%3A%20Hello%20Metal/3.%20Textures/
-fragment float4 fragment_main(VertexOut in [[stage_in]], texture2d<float> imageTexture [[texture(0)]],
+fragment float4 fragment_main(VertexOut in [[stage_in]], 
+                              texture2d<float> imageTexture [[texture(0)]],
                               texture2d<float> colourMapTexture [[texture(1)]]) {
     // Sample the image texture
     constexpr sampler s(coord::normalized, address::clamp_to_edge, filter::nearest);
