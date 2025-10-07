@@ -1,8 +1,8 @@
 # This script generates and saves a sparse projection matrix for the following geometry:
 # - Image size: 256x256
 # - Number of detectors: calculated to cover the diagonal of the image
-# - Number of angles: 90 
-# - Projection type: Parallel beam strip projector
+# - Number of angles: 90-360
+# - Projection type: strip, linear, line
 # The matrix is saved in a binary format with metadata (number of rows, columns, and non-zero entries) 
 # followed by the CSR representation arrays.
 
@@ -26,15 +26,20 @@ num_detectors = int(np.ceil(2 * np.sqrt(2) * image_size))
 print(f"Number of detectors: {num_detectors}")
 
 # Set number of angles and angle total degrees
-angles = np.linspace(0, np.pi, 90, False)
+angles = np.linspace(0, np.pi, 360, False)
 proj_geom = astra.create_proj_geom(
     'parallel', 1.0, num_detectors, angles
 )
 
 # Create projector
-projector_id = astra.create_projector('strip', proj_geom, vol_geom)
+projector_id = astra.create_projector('line', proj_geom, vol_geom)
 matrix_id = astra.projector.matrix(projector_id)
 A_csr = astra.matrix.get(matrix_id)
+
+# Print dimensions and nnz
+num_rows, num_cols = A_csr.shape
+num_non_zero = A_csr.nnz
+print(f"Projection matrix dimensions: {num_rows} x {num_cols}, Non-zero entries: {num_non_zero}")
 
 with open(output_filename, "wb") as f:
     # Get dimensions and nnz
