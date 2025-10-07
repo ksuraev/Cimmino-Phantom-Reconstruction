@@ -19,19 +19,33 @@ set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS}")
 
 # Add source files for main project
 file(GLOB_RECURSE PROJECT_SOURCES ${CMAKE_SOURCE_DIR}/metal-src/*.cpp ${CMAKE_SOURCE_DIR}/metal-src/*.mm)
+# Exclude algorithm-tester and normalisation-profiler classes from Project
+list(FILTER PROJECT_SOURCES EXCLUDE REGEX ".*metal-src/AlgorithmTester.mm")
+list(FILTER PROJECT_SOURCES EXCLUDE REGEX ".*metal-src/NormalisationProfiler.mm")
 add_executable(Project ${PROJECT_SOURCES})
 
-# Add source files for test normalisation project, excluding main.mm to avoid duplicate main function
-list(FILTER PROJECT_SOURCES EXCLUDE REGEX ".*metal-src/main.mm")
-add_executable(NormalisationProfiler
+# Add source files for test normalisation project
+set(NORMALISATION_PROFILER_SOURCES
     normalisation-profiler/main.mm
-    ${PROJECT_SOURCES}
+    metal-src/NormalisationProfiler.mm
+    metal-src/MetalComputeEngine.mm
+    metal-src/MetalUtilities.mm
+    metal-src/Utilities.cpp
+    metal-src/MTLImplementation.cpp
 )
+add_executable(NormalisationProfiler ${NORMALISATION_PROFILER_SOURCES})
 
-add_executable(AlgorithmTester
+# Add source files for algorithm tester project
+set(ALGORITHM_TESTER_SOURCES
     algorithm-tester/main.mm
-    ${PROJECT_SOURCES}
+    metal-src/AlgorithmTester.mm
+    metal-src/MetalComputeEngine.mm
+    metal-src/MetalUtilities.mm
+    metal-src/Utilities.cpp
+    metal-src/MTLImplementation.cpp
 )
+add_executable(AlgorithmTester ${ALGORITHM_TESTER_SOURCES})
+
 
 target_include_directories(Project PUBLIC ${CMAKE_SOURCE_DIR}/metal-include)
 target_include_directories(NormalisationProfiler PUBLIC ${CMAKE_SOURCE_DIR}/metal-include)
