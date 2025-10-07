@@ -10,12 +10,14 @@
 
 constexpr uint32_t IMAGE_WIDTH = 256;
 constexpr uint32_t IMAGE_HEIGHT = 256;
-constexpr uint32_t NUM_ANGLES = 90;
+constexpr uint32_t NUM_ANGLES = 360;
 constexpr uint32_t NUM_THREADS = 8;
 
 constexpr const char* LOG_FILE = "logs/performance_log.csv";
 constexpr const char* PROJECTION_FILE = "data/projection_256.bin";
 constexpr const char* PHANTOM_FILE = "data/phantom_256.txt";
+
+constexpr float RELAXATION_FACTOR = 350.0f;
 
 /**
  * @brief Compute the squared L2 norm of each row in the sparse matrix and the total weight sum.
@@ -63,7 +65,7 @@ double calculateErrorNorm(std::vector<float>& phantom, std::vector<float>& appro
 #pragma omp parallel for reduction(+:differenceSum) schedule(static) num_threads(NUM_THREADS)
     for (size_t i = 0; i < A.size(); ++i) {
         float currentValue = A[i];
-        float phantomValue = phantom[i];
+        float phantomValue = P[i];
         float difference = currentValue - phantomValue;
 
         differenceSum += difference * difference;
@@ -106,6 +108,34 @@ void computeSinogram(
 }
 
 /**
+ * @brief Normalise each row of the sparse projection matrix to have unit L2 norm.
+ * @param projector The sparse projection matrix in CSR format (modified in place).
+ * @param totalRays The total number of rays (rows in the sinogram).
+ */
+void normaliseProjectionMatrix(SparseMatrix& projector, size_t totalRays, float& totalWeightSum) {
+    totalWeightSum = 0.0F;
+#pragma omp parallel for schedule(static) num_threads(NUM_THREADS)
+    for (size_t i = 0; i < totalRays; ++i) {
+        double rowNormSq = 0.0;
+
+        // Compute the squared norm of the row
+        for (size_t j = projector.rows[i]; j < projector.rows[i + 1]; ++j) {
+            rowNormSq += static_cast<double>(projector.vals[j] * projector.vals[j]);
+        }
+
+        float rowNorm = static_cast<float>(sqrt(rowNormSq));
+        if (rowNorm > 0.0F) {
+            // Normalise the row and accumulate the normalised weight sum
+            for (size_t j = projector.rows[i]; j < projector.rows[i + 1]; ++j) {
+                projector.vals[j] /= rowNorm;
+            }
+#pragma omp atomic
+            totalWeightSum += 1.0F;  // Each normalised row has unit norm
+        }
+    }
+}
+
+/**
  * @brief Perform Cimmino's reconstruction algorithm using OpenMP for parallelization.
  * @param numIterations Number of iterations to perform.
  * @param projector Sparse projection matrix in CSR format.
@@ -125,7 +155,7 @@ void cimminoReconstruct(int numIterations,
     const size_t& totalRays,
     const std::vector<float>& sinogram,
     std::vector<float>& phantom,
-    const float& totalWeightSum,
+    const float totalWeightSum,
     const double phantomNorm,
     double& relativeErrorNorm) {
 
@@ -144,7 +174,7 @@ void cimminoReconstruct(int numIterations,
             float dotProduct = 0.0f;
             int rowStart = projector.rows[r];
             int rowEnd = projector.rows[r + 1];
-            if (rowStart == rowEnd) continue; // Skip empty rows
+            // if (rowStart == rowEnd) continue; // Skip empty rows
 
 #pragma omp simd reduction(+:dotProduct)
             for (int i = rowStart; i < rowEnd; ++i) {
@@ -160,10 +190,10 @@ void cimminoReconstruct(int numIterations,
         for (size_t r = 0; r < totalRays; ++r) {
             int rowStart = projector.rows[r];
             int rowEnd = projector.rows[r + 1];
-            if (rowStart == rowEnd) continue; // Skip empty rows
+            // if (rowStart == rowEnd) continue; // Skip empty rows
 
             float residual = residuals[r];
-            float scalar = (2.0f / totalWeightSum) * residual;
+            float scalar = RELAXATION_FACTOR * (2.0f / totalWeightSum) * residual;
 
             for (size_t i = rowStart; i < rowEnd; ++i) {
                 int   pixelIndex = projector.cols[i];
@@ -176,10 +206,11 @@ void cimminoReconstruct(int numIterations,
         // Update global image vector
 #pragma omp parallel for num_threads(NUM_THREADS) schedule(static)
         for (size_t i = 0; i < imageSize; ++i) {
-            x[i] += localX[i];
+            if (x[i] + localX[i] < 0.0f) x[i] = 0.0f;
+            else x[i] += localX[i];
         }
         // Check for convergence every 50 iterations
-        if ((i + 1) % 1 == 0) {
+        if ((i + 1) % 50 == 0) {
             relativeErrorNorm = calculateErrorNorm(phantom, x, phantomNorm);
             if (relativeErrorNorm < 1e-2) {
                 std::cout << "Converged after " << (i + 1) << " iterations with relative error norm: " << relativeErrorNorm << std::endl;
@@ -219,6 +250,9 @@ int main(int argc, const char* argv[]) {
         std::cerr << "Failed to load sparse projection matrix." << std::endl;
         return -1;
     }
+    float totalWeightSum = 0.0f;
+    normaliseProjectionMatrix(projector, totalRays, totalWeightSum);
+    std::cout << "Total weight sum after normalisation: " << totalWeightSum << std::endl;
     // Load phantom from file
     std::vector<float> phantom = loadPhantom((basePath + PHANTOM_FILE).c_str(), geom);
     if (phantom.empty()) {
@@ -232,7 +266,7 @@ int main(int argc, const char* argv[]) {
         }
     }
 
-    // Load sinogram from file
+    // Compute sinogram
     std::vector<float> sinogram(totalRays, 0.0f);
     auto scanTime = timeMethod_ms([&]() {
         computeSinogram(phantom, projector, totalRays, sinogram);
@@ -242,9 +276,6 @@ int main(int argc, const char* argv[]) {
     // Precompute phantom norm for error calculation
     double phantomNorm = 0.0;
     precomputePhantomNorm(phantom, phantomNorm);
-
-    float totalWeightSum = 0.0f;
-    computeTotalWeight(projector, totalRays, totalWeightSum);
 
     // Reconstruct image and time execution
     double relativeErrorNorm = 0.0;

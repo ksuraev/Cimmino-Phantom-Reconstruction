@@ -7,11 +7,13 @@
 
 constexpr uint32_t IMAGE_WIDTH = 256;
 constexpr uint32_t IMAGE_HEIGHT = 256;
-constexpr uint32_t NUM_ANGLES = 90;
+constexpr uint32_t NUM_ANGLES = 360;
 
 constexpr const char* LOG_FILE = "logs/performance_log.csv";
 constexpr const char* PROJECTION_FILE = "data/projection_256.bin";
 constexpr const char* PHANTOM_FILE = "data/phantom_256.txt";
+
+constexpr float RELAXATION_FACTOR = 350.0f;
 
 /**
  * @brief Find the maximum value in a 2D texture.
@@ -98,6 +100,32 @@ void computeTotalWeight(const SparseMatrix& projector, size_t totalRays, float& 
         for (int i = projector.rows[r]; i < projector.rows[r + 1]; ++i)
             rowNormSq += static_cast<double>(projector.vals[i] * projector.vals[i]);
         totalWeightSum += static_cast<float>(rowNormSq);;
+    }
+}
+
+/**
+ * @brief Normalise each row of the sparse projection matrix to have unit L2 norm.
+ * @param projector The sparse projection matrix in CSR format (modified in place).
+ * @param totalRays The total number of rays (rows in the sinogram).
+ */
+void normaliseProjectionMatrix(SparseMatrix& projector, size_t totalRays, float& totalWeightSum) {
+    totalWeightSum = 0.0F;
+    for (size_t i = 0; i < totalRays; ++i) {
+        double rowNormSq = 0.0;
+
+        // Compute the squared norm of the row
+        for (size_t j = projector.rows[i]; j < projector.rows[i + 1]; ++j) {
+            rowNormSq += static_cast<double>(projector.vals[j] * projector.vals[j]);
+        }
+
+        float rowNorm = static_cast<float>(sqrt(rowNormSq));
+        if (rowNorm > 0.0F) {
+            // Normalise the row and accumulate the normalised weight sum
+            for (size_t j = projector.rows[i]; j < projector.rows[i + 1]; ++j) {
+                projector.vals[j] /= rowNorm;
+            }
+            totalWeightSum += 1.0F;  // Each normalised row has unit norm
+        }
     }
 }
 
@@ -189,19 +217,25 @@ void cimminoReconstruct(int maxIterations,
         for (size_t r = 0; r < totalRays; ++r) {
             float residual = residuals[r];
 
-            float scalar = (2.0f / totalWeightSum) * residual;
+            float scalar = RELAXATION_FACTOR * (2.0f / totalWeightSum) * residual;
             int rowStart = projector.rows[r];
             int rowEnd = projector.rows[r + 1];
 
             for (size_t i = rowStart; i < rowEnd; ++i) {
                 int index = projector.cols[i];
                 float weight = projector.vals[i];
-                reconstructedVector[index] += scalar * weight;
+                float contribution = scalar * weight;
+                if (reconstructedVector[index] + contribution < 0.0f) {
+                    reconstructedVector[index] = 0.0f;
+                }
+                else {
+                    reconstructedVector[index] += contribution;
+                }
             }
         }
 
         // Check for convergence every 50 iterations
-        if ((i + 1) % 1 == 0) {
+        if ((i + 1) % 50 == 0) {
             relativeErrorNorm = calculateErrorNorm(phantom, reconstructedVector, phantomNorm);
             if (relativeErrorNorm < 1e-2) {
                 std::cout << "Converged after " << (i + 1) << " iterations with relative error norm: " << relativeErrorNorm << std::endl;
@@ -240,6 +274,9 @@ int main(int argc, const char* argv[]) {
         std::cerr << "Failed to load sparse projection matrix." << std::endl;
         return -1;
     }
+    float totalWeightSum = 0.0f;
+    normaliseProjectionMatrix(projector, totalRays, totalWeightSum);
+
     // Load phantom from file
     std::vector<float> phantom = loadPhantom((basePath + PHANTOM_FILE).c_str(), geom);
     if (phantom.empty()) {
@@ -260,23 +297,11 @@ int main(int argc, const char* argv[]) {
         computeSinogram(phantom, projector, totalRays, sinogram);
         });
     std::cout << "Sinogram computation time (ms): " << scanTime << std::endl;
-    // Save sinogram to file
-    std::string sinogramSaveFileName = basePath + "data/sinogram_seq_" + std::to_string(IMAGE_WIDTH) + ".txt";
-    saveImage(sinogramSaveFileName, sinogram, geom.nDetectors, geom.nAngles);
-    //  if (!loadSinogram(basePath + "data/sinogram_512.txt", sinogram)) {
-    //      std::cerr << "Failed to load sinogram." << std::endl;
-    //      return -1;
-    //  }
-
-
 
     // Precompute phantom norm for error calculation
     double phantomNorm = 0.0;
     precomputePhantomNorm(phantom, phantomNorm);
 
-    // Compute row weights and total weight sum
-    float totalWeightSum = 0.0f;
-    computeTotalWeight(projector, totalRays, totalWeightSum);
 
     // Reconstruct image and time execution
     std::vector<float> reconstructedImage(IMAGE_WIDTH * IMAGE_HEIGHT, 0.0f);
