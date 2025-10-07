@@ -5,11 +5,11 @@
 # Example: export PROJECT_BASE_PATH=/path/to/your/Other-Implementations
 
 # Compilation
-g++-15 -o sequential_exec sequential/sequential.cpp utilities/utilities.cpp
+clang++ -o sequential_exec sequential/sequential.cpp utilities/utilities.cpp
 g++-15 -fopenmp -o openmp_exec openmp/openmp.cpp utilities/utilities.cpp
 
 # Array of iteration counts
-iteration_counts=(10 100 500 1000)
+iteration_counts=(100 500 1000)
 
 # Run each program 3 times for each iteration count - the iteration count is passed as a command line argument
 for iterations in "${iteration_counts[@]}"; do
