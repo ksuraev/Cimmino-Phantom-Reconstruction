@@ -75,12 +75,53 @@ kernel void normaliseKernel(texture2d<float, access::read_write> inputTexture [[
     }
 }
 
+// kernel void cimminosReconstruction(const device float* reconstructedBuffer [[buffer(0)]],
+//                                    const device float* sinogramBuffer_b [[buffer(1)]], const device int* offsetsBuffer_A [[buffer(2)]],
+//                                    const device int* colsBuffer_A [[buffer(3)]], const device float* valsBuffer_A [[buffer(4)]],
+//                                    constant float& totalWeightSum [[buffer(5)]], constant uint& numRays [[buffer(6)]],
+//                                    device atomic_float* updateBuffer [[buffer(7)]], 
+//                                    const device float* vColBuffer [[buffer(8)]],
+//                                    uint gid [[thread_position_in_grid]]) {
+//     uint rayIndex = gid;
+//     if (rayIndex >= numRays) return;
+
+//     // Get row start and end for this ray
+//     int rowStart = offsetsBuffer_A[rayIndex];
+//     int rowEnd = offsetsBuffer_A[rayIndex + 1];
+
+//     // Compute the dot product for this ray
+//     float dotProduct = 0.0f;
+//     for (int i = rowStart; i < rowEnd; ++i) {
+//         dotProduct += valsBuffer_A[i] * reconstructedBuffer[colsBuffer_A[i]];
+//     }
+    
+//     // Compute residual and scaling factor
+//     float b_i = sinogramBuffer_b[rayIndex];
+//     float residual = b_i - dotProduct;
+//     const float tau = 1.50f;   // try 0.25, 0.5, 0.75, 1.0, 1.25
+//     float scalar = tau * (2.0f / (float)65536) * residual;
+
+//     // Back Project - Add this ray's contribution to the update buffer
+//     for (int i = rowStart; i < rowEnd; ++i) {
+//         int pixelIndex = colsBuffer_A[i];
+//         float weight = valsBuffer_A[i];
+//         float contribution = scalar * weight * vColBuffer[pixelIndex];
+
+//         // Atomically add the contribution to prevent race conditions
+//         atomic_fetch_add_explicit(&updateBuffer[pixelIndex], contribution, memory_order_relaxed);
+//     }
+// }
+
+
 // Pass 1 of Cimmino's algorithm:
-kernel void cimminosReconstruction(const device float* reconstructedBuffer [[buffer(0)]],  // The current reconstruction x^k
-                                   const device float* sinogramBuffer_b [[buffer(1)]], const device int* offsetsBuffer_A [[buffer(2)]],
-                                   const device int* colsBuffer_A [[buffer(3)]], const device float* valsBuffer_A [[buffer(4)]],
-                                   constant float& totalWeightSum [[buffer(5)]], constant uint& numRays [[buffer(6)]],
-                                   device atomic_float* updateBuffer [[buffer(7)]],  // The next reconstruction x^(k+1)
+kernel void cimminosReconstruction(const device float* reconstructedBuffer [[buffer(0)]],
+                                   const device float* sinogramBuffer_b [[buffer(1)]], 
+                                   const device int* offsetsBuffer_A [[buffer(2)]],
+                                   const device int* colsBuffer_A [[buffer(3)]], 
+                                   const device float* valsBuffer_A [[buffer(4)]],
+                                   constant float& totalWeightSum [[buffer(5)]], 
+                                   constant uint& numRays [[buffer(6)]],
+                                   device atomic_float* updateBuffer [[buffer(7)]], 
                                    uint gid [[thread_position_in_grid]]) {
     uint rayIndex = gid;
     if (rayIndex >= numRays) return;
@@ -89,16 +130,16 @@ kernel void cimminosReconstruction(const device float* reconstructedBuffer [[buf
     int rowStart = offsetsBuffer_A[rayIndex];
     int rowEnd = offsetsBuffer_A[rayIndex + 1];
 
-    // Compute the dot product for this ray
+    // Compute the dot product for this ray (A_i^T x^k)
     float dotProduct = 0.0f;
     for (int i = rowStart; i < rowEnd; ++i) {
         dotProduct += valsBuffer_A[i] * reconstructedBuffer[colsBuffer_A[i]];
     }
-
-    // Compute residual and scaling factor
+    
+    // Compute residual and scaling factor (b_i - A_i^T x^k)
     float b_i = sinogramBuffer_b[rayIndex];
     float residual = b_i - dotProduct;
-    float scalar = 2.0f * (1.0f / totalWeightSum) * residual;
+    float scalar =  280.0f * (2.0f / totalWeightSum) * residual;
 
     // Back Project - Add this ray's contribution to the update buffer
     for (int i = rowStart; i < rowEnd; ++i) {
@@ -115,7 +156,12 @@ kernel void cimminosReconstruction(const device float* reconstructedBuffer [[buf
 kernel void applyUpdate(device float* reconstructedBuffer [[buffer(0)]], const device float* updateBuffer [[buffer(1)]],
                         constant uint& numPixels [[buffer(5)]], uint gid [[thread_position_in_grid]]) {
     if (gid >= numPixels) return;
-    reconstructedBuffer[gid] += updateBuffer[gid];
+    // Add small regularisation to prevent negative values creeping in
+    if (reconstructedBuffer[gid] + updateBuffer[gid] < 0.0f) {
+        reconstructedBuffer[gid] = 0.0f;
+    } else {
+        reconstructedBuffer[gid] += updateBuffer[gid];
+    }
 }
 
 // Compute the relative difference between the reconstruction and the phantom
