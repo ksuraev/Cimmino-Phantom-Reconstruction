@@ -38,6 +38,20 @@ void MTLComputeEngine::loadProjectionMatrix(const std::string &projectionFileNam
     if (matrix.cols.size() != totalNonZeroElements || matrix.vals.size() != totalNonZeroElements)
         throw std::runtime_error("Error: Cols or Vals size does not match total non-zero elements.");
 
+    // Preconditions values by normalising each row to unit norm
+    for (size_t i = 0; i < totalRays; ++i) {
+        double rowNormSq = 0.0;
+        for (size_t j = matrix.rows[i]; j < matrix.rows[i + 1]; ++j) {
+            rowNormSq += static_cast<double>(matrix.vals[j] * matrix.vals[j]);
+        }
+        float rowNorm = static_cast<float>(sqrt(rowNormSq));
+        if (rowNorm > 0.0F) {
+            for (size_t j = matrix.rows[i]; j < matrix.rows[i + 1]; ++j) {
+                matrix.vals[j] /= rowNorm;
+            }
+        }
+    }
+
     // Load into projection matrix CSR metal buffers
     offsetsBuffer = metalUtils->createBuffer((matrix.rows.size()) * sizeof(int), MTL::ResourceStorageModeShared, matrix.rows.data());
     colsBuffer = metalUtils->createBuffer(matrix.cols.size() * sizeof(int), MTL::ResourceStorageModeShared, matrix.cols.data());
@@ -48,7 +62,7 @@ void MTLComputeEngine::loadProjectionMatrix(const std::string &projectionFileNam
     for (size_t i = 0; i < totalRays; ++i) {
         double rowNormSq = 0.0;
         for (size_t j = matrix.rows[i]; j < matrix.rows[i + 1]; ++j) {
-            rowNormSq += static_cast<double>(matrix.vals[j]) * matrix.vals[j];
+            rowNormSq += static_cast<double>(matrix.vals[j] * matrix.vals[j]);
         }
         totalWeightSum += static_cast<float>(rowNormSq);
     }
