@@ -79,16 +79,15 @@ def display_multiple_images(file_paths):
 if __name__ == "__main__":
     # List of .txt file paths
     file_paths = [
-        "metal_1_256.txt",
-        "metal_10_256.txt",
-        "metal_100_256.txt",
-        "metal_500_256.txt",
+        # "metal_10_256.txt",
+        # "metal_100_256.txt",
+        # "metal_500_256.txt",
         "metal_1000_256.txt",
-        "metal_5000_256.txt",
-        "metal_10000_256.txt",
-        "metal_15000_256.txt",
-        "metal_20000_256.txt",
-        "phantom_256.txt"
+        # "metal_5000_256.txt",
+        # "metal_10000_256.txt",
+        # "metal_15000_256.txt",
+        # "metal_20000_256.txt",
+        # "phantom_256.txt"
     ]
 
     # Display all images in one window
