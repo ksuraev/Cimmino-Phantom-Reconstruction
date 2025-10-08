@@ -400,3 +400,4 @@ Timestamp,ExecutionType,NumIterations,ImageWidth,ImageHeight,NumAngles,NumDetect
 2025-10-07 19:31:54,Metal-line-constrained,100,256,256,360,725,350,0.135476,702.068
 2025-10-07 19:31:59,Metal-line-constrained,500,256,256,360,725,350,0.0430704,3495.9
 2025-10-07 19:32:06,Metal-line-constrained,1000,256,256,360,725,350,0.026563,6974.57
+
