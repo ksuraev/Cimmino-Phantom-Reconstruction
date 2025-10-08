@@ -231,7 +231,7 @@ int main(int argc, const char* argv[]) {
     }
     float totalWeightSum = 0.0f;
     normaliseProjectionMatrix(projector, totalRays, totalWeightSum);
-    std::cout << "Total weight sum after normalisation: " << totalWeightSum << std::endl;
+
     // Load phantom from file
     std::vector<float> phantom = loadPhantom((basePath + PHANTOM_FILE).c_str(), geom);
     if (phantom.empty()) {
@@ -255,7 +255,7 @@ int main(int argc, const char* argv[]) {
     // Precompute phantom norm for error calculation
     double phantomNorm = 0.0;
     precomputePhantomNorm(phantom, phantomNorm);
-    std::cout << "Phantom L2 norm: " << phantomNorm << std::endl;
+
     // Reconstruct image and time execution
     double relativeErrorNorm = 0.0;
     std::vector<float> reconstructed(IMAGE_WIDTH * IMAGE_HEIGHT, 0.0f);
