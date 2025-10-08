@@ -173,7 +173,7 @@ void logRelaxationExperiment(Geometry& geom, int numIterations, float relaxation
     std::tm* local_tm = std::localtime(&now_time);
 
     // Write the new data row to CSV file
-    logFile << std::put_time(local_tm, "%Y-%m-%d %H:%M:%S") << "," << "Metal" << ","
+    logFile << std::put_time(local_tm, "%Y-%m-%d %H:%M:%S") << "," << "Metal-line-constrained" << ","
         << numIterations << "," << geom.imageWidth << ","
         << geom.imageHeight << "," << geom.nAngles << "," << geom.nDetectors
         << "," << relaxationFactor << "," << finalErrorNorm << "," << reconstructionTime <<
