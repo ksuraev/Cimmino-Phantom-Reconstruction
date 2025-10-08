@@ -1,12 +1,12 @@
 /**
- * @file mtlComputeEngine.mm
+ * @file MetalComputeEngine.mm
  * @brief Implementation of the MTLComputeEngine class for Metal-based CT
  * reconstruction.
  *
  * This class handles the generation of the projection matrix,
  * performing the scan to create a sinogram, and reconstructing the image using
  * the Cimmino's algorithm. It utilises Metal compute shaders for parallel
- * processing. See mtlComputeEngine.hpp for class definition. See
+ * processing. See MetalComputeEngine.hpp for class definition. See
  * metal-shaders/kernels.metal for Metal shader implementations.
  */
 
@@ -39,7 +39,7 @@ void MTLComputeEngine::loadProjectionMatrix(const std::string &projectionFileNam
         throw std::runtime_error("Error: Cols or Vals size does not match total non-zero elements.");
 
     // Precondition values by normalising each row to unit norm
-    totalWeightSum = 0.0F;
+    totalWeightSum = 0.0f;
     for (size_t i = 0; i < totalRays; ++i) {
         double rowNormSq = 0.0;
 
@@ -49,12 +49,12 @@ void MTLComputeEngine::loadProjectionMatrix(const std::string &projectionFileNam
         }
 
         float rowNorm = static_cast<float>(sqrt(rowNormSq));
-        if (rowNorm > 0.0F) {
+        if (rowNorm > 0.0f) {
             // Normalise the row and accumulate the normalised weight sum
             for (size_t j = matrix.rows[i]; j < matrix.rows[i + 1]; ++j) {
                 matrix.vals[j] /= rowNorm;
             }
-            totalWeightSum += 1.0F;  // Each normalised row has unit norm
+            totalWeightSum += 1.0f;  // Each normalised row has unit norm
         }
     }
 
@@ -69,7 +69,7 @@ void MTLComputeEngine::initialisePhantom(std::vector<float> &phantomData) {
     std::vector<float> flippedPhantomData = flipImageVertically(phantomData, geom.imageWidth, geom.imageHeight);
 
     // Precompute phantom norm for convergence checking
-    float phantomNormSum = 0.0F;
+    float phantomNormSum = 0.0f;
     for (const auto &val : flippedPhantomData) {
         phantomNormSum += val * val;
     }
@@ -130,7 +130,7 @@ void MTLComputeEngine::computeSinogram(std::vector<float> &phantomData, double &
     // metalUtils->saveTextureToFile(filePath, sinogramTexture);
 
     // Normalise sinogram texture
-    float maxSinogramValue = 0.0F;
+    float maxSinogramValue = 0.0f;
     findMaxValInTexture(sinogramTexture, maxSinogramValue);
     normaliseTexture(sinogramTexture, maxSinogramValue);
 }
@@ -180,7 +180,7 @@ void MTLComputeEngine::findMaxValInTexture(MTL::Texture *texture, float &maxValu
 
 void MTLComputeEngine::normaliseTexture(MTL::Texture *texture, float maxValue) {
     if (!texture) throw std::runtime_error("Texture to be normalised is null.");
-    if (maxValue == 0.0F) {
+    if (maxValue == 0.0f) {
         std::cerr << "Max value is zero, texture will not be normalised." << std::endl;
         return;
     }
