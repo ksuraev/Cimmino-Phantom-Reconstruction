@@ -32,7 +32,7 @@ void AlgorithmTester::testReconstruction(Geometry &geom, uint numIterations, dou
     generateTestSinogram(geom.nAngles, geom.nDetectors);
 
     // Run reconstruction
-    reconstructImage(numIterations, finalErrorNorm);
+    reconstructImage(numIterations, finalErrorNorm, 350.0f);
 
     std::cout << "Final error norm: " << finalErrorNorm << std::endl;
 
