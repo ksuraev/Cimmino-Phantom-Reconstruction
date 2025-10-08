@@ -3,6 +3,7 @@
 # - Number of detectors: calculated to cover the diagonal of the image
 # - Number of angles: 90-360
 # - Projection type: strip, linear, line
+# For our problem/project, we use 360 angles and 'line' projection type for best results.
 # The matrix is saved in a binary format with metadata (number of rows, columns, and non-zero entries) 
 # followed by the CSR representation arrays.
 
