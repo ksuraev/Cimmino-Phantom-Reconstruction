@@ -53,8 +53,7 @@ int main(int argc, char **argv) {
 
         // logPerformance(geom, numIterations, projectionTime, scanTime, totalReconstructTime, finalErrorNorm,
         //                std::string(PROJECT_BASE_PATH) + LOG_FILE);
-        double relaxationFactor = 350.0;
-        logRelaxationExperiment(geom, numIterations, relaxationFactor, finalErrorNorm, totalReconstructTime,
+        logRelaxationExperiment(geom, numIterations, RELAXATION_FACTOR, finalErrorNorm, totalReconstructTime,
                                 std::string(PROJECT_BASE_PATH) + "/metal-logs/relaxation_experiment_log.csv");
 
         pPool->release();
