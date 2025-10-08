@@ -16,48 +16,6 @@ constexpr const char* PHANTOM_FILE = "data/phantom_256.txt";
 constexpr float RELAXATION_FACTOR = 350.0f;
 
 /**
- * @brief Find the maximum value in a 2D texture.
- * @param texture The 2D texture represented as a vector of vectors.
- * @return The maximum value found in the texture.
- */
-float findMaxValue(const std::vector<std::vector<float>>& texture) {
-    float maxVal = 0.0f;
-
-    for (size_t y = 0; y < texture.size(); ++y) {
-        for (size_t x = 0; x < texture[y].size(); ++x) {
-            maxVal = std::max(maxVal, texture[y][x]);
-        }
-    }
-
-    return maxVal;
-}
-
-/**
- * @brief Normalise a 2D texture by dividing each element by the maximum value.
- * If the maximum value is zero or negative, all elements are set to zero.
- * @param texture The 2D texture represented as a vector of vectors (modified in place).
- * @param maxVal The maximum value used for normalisation.
- */
-void normaliseTexture(std::vector<std::vector<float>>& texture, float maxVal) {
-    if (maxVal <= 0.0f) {
-        // If maxVal is 0 or negative, set all values to 0
-        for (size_t y = 0; y < texture.size(); ++y) {
-            for (size_t x = 0; x < texture[y].size(); ++x) {
-                texture[y][x] = 0.0f;
-            }
-        }
-    }
-    else {
-        // Normalize each value by dividing by maxVal
-        for (size_t y = 0; y < texture.size(); ++y) {
-            for (size_t x = 0; x < texture[y].size(); ++x) {
-                texture[y][x] /= maxVal;
-            }
-        }
-    }
-}
-
-/**
  * @brief Compute the sinogram by multiplying the sparse projection matrix with the phantom data.
  * @param phantomData The phantom image data as a flat vector.
  * @param projector The sparse projection matrix in CSR format.
@@ -88,28 +46,12 @@ void computeSinogram(
 }
 
 /**
- * @brief Compute the squared L2 norm of each row in the sparse matrix and the total weight sum.
- * @param projector Sparse projection matrix in CSR format.
- * @param totalRays Total number of rays (rows in the sinogram).
- * @param totalWeightSum Variable to store the total sum of row weights.
- */
-void computeTotalWeight(const SparseMatrix& projector, size_t totalRays, float& totalWeightSum) {
-    totalWeightSum = 0.0f;
-    for (size_t r = 0; r < totalRays; ++r) {
-        double rowNormSq = 0.0f;
-        for (int i = projector.rows[r]; i < projector.rows[r + 1]; ++i)
-            rowNormSq += static_cast<double>(projector.vals[i] * projector.vals[i]);
-        totalWeightSum += static_cast<float>(rowNormSq);;
-    }
-}
-
-/**
  * @brief Normalise each row of the sparse projection matrix to have unit L2 norm.
  * @param projector The sparse projection matrix in CSR format (modified in place).
  * @param totalRays The total number of rays (rows in the sinogram).
  */
 void normaliseProjectionMatrix(SparseMatrix& projector, size_t totalRays, float& totalWeightSum) {
-    totalWeightSum = 0.0F;
+    totalWeightSum = 0.0f;
     for (size_t i = 0; i < totalRays; ++i) {
         double rowNormSq = 0.0;
 
@@ -119,12 +61,12 @@ void normaliseProjectionMatrix(SparseMatrix& projector, size_t totalRays, float&
         }
 
         float rowNorm = static_cast<float>(sqrt(rowNormSq));
-        if (rowNorm > 0.0F) {
+        if (rowNorm > 0.0f) {
             // Normalise the row and accumulate the normalised weight sum
             for (size_t j = projector.rows[i]; j < projector.rows[i + 1]; ++j) {
                 projector.vals[j] /= rowNorm;
             }
-            totalWeightSum += 1.0F;  // Each normalised row has unit norm
+            totalWeightSum += 1.0f;  // Each normalised row has unit norm
         }
     }
 }
@@ -158,7 +100,7 @@ double calculateErrorNorm(std::vector<float>& phantom, std::vector<float>& appro
 
     for (size_t i = 0; i < A.size(); ++i) {
         float currentValue = A[i];
-        float phantomValue = phantom[i];
+        float phantomValue = P[i];
         float difference = currentValue - phantomValue;
 
         differenceSum += difference * difference;
@@ -189,19 +131,16 @@ void cimminoReconstruct(int maxIterations,
     std::vector<float>& phantom,
     const size_t& totalRays,
     const std::vector<float>& sinogram,
-    const float& totalWeightSum,
+    const float totalWeightSum,
     double phantomNorm,
     double& relativeErrorNorm) {
 
     size_t imageSize = IMAGE_WIDTH * IMAGE_HEIGHT;
 
-    std::vector<float> residuals(totalRays);
+    std::vector<float> residuals(totalRays, 0.0f);
 
-    for (int i = 0; i < maxIterations; ++i) {
-
+    for (size_t i = 0; i < maxIterations; ++i) {
         // Pass 1: Calculate all residuals
-        std::fill(residuals.begin(), residuals.end(), 0.0f);
-
         for (size_t r = 0; r < totalRays; ++r) {
             float dotProduct = 0.0f;
             int rowStart = projector.rows[r];
@@ -223,15 +162,15 @@ void cimminoReconstruct(int maxIterations,
 
             for (size_t i = rowStart; i < rowEnd; ++i) {
                 int index = projector.cols[i];
-                float weight = projector.vals[i];
-                float contribution = scalar * weight;
-                if (reconstructedVector[index] + contribution < 0.0f) {
-                    reconstructedVector[index] = 0.0f;
-                }
-                else {
-                    reconstructedVector[index] += contribution;
-                }
+                float contribution = scalar * projector.vals[i];
+
+                reconstructedVector[index] += contribution;
             }
+        }
+
+        // Non-neg constraint
+        for (size_t i = 0; i < imageSize; ++i) {
+            if (reconstructedVector[i] < 0.0f) reconstructedVector[i] = 0.0f;
         }
 
         // Check for convergence every 50 iterations
@@ -242,6 +181,7 @@ void cimminoReconstruct(int maxIterations,
                 break;
             }
         }
+        std::fill(residuals.begin(), residuals.end(), 0.0f);
     }
     std::cout << "Reconstruction for " << maxIterations << " iterations complete." << std::endl;
 }
@@ -302,7 +242,6 @@ int main(int argc, const char* argv[]) {
     double phantomNorm = 0.0;
     precomputePhantomNorm(phantom, phantomNorm);
 
-
     // Reconstruct image and time execution
     std::vector<float> reconstructedImage(IMAGE_WIDTH * IMAGE_HEIGHT, 0.0f);
     double relativeErrorNorm = 0.0;
@@ -317,6 +256,6 @@ int main(int argc, const char* argv[]) {
     saveImage(imageSaveFileName, reconstructedImage, geom.imageWidth, geom.imageHeight);
 
     // Log performance
-    logPerformance("Sequential", geom, numIterations, totalReconstructTime, relativeErrorNorm, scanTime, basePath + LOG_FILE);
+    logPerformance("Sequential-enhanced", geom, numIterations, totalReconstructTime, relativeErrorNorm, scanTime, basePath + LOG_FILE);
 }
 

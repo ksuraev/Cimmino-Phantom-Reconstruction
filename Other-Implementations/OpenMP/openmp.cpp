@@ -20,23 +20,6 @@ constexpr const char* PHANTOM_FILE = "data/phantom_256.txt";
 constexpr float RELAXATION_FACTOR = 350.0f;
 
 /**
- * @brief Compute the squared L2 norm of each row in the sparse matrix and the total weight sum.
- * @param projector Sparse projection matrix in CSR format.
- * @param totalRays Total number of rays (rows in the sinogram).
- * @param totalWeightSum Variable to store the total sum of row weights.
- */
-void computeTotalWeight(const SparseMatrix& projector, size_t totalRays, float& totalWeightSum) {
-    totalWeightSum = 0.0f;
-#pragma omp parallel for reduction(+:totalWeightSum) schedule(static) num_threads(NUM_THREADS)
-    for (size_t r = 0; r < totalRays; ++r) {
-        double rowNormSq = 0.0f;
-        for (int i = projector.rows[r]; i < projector.rows[r + 1]; ++i)
-            rowNormSq += static_cast<double>(projector.vals[i] * projector.vals[i]);
-        totalWeightSum += static_cast<float>(rowNormSq);;
-    }
-}
-
-/**
  * @brief Precompute the L2 norm of the phantom image.
  * @param phantom The original phantom image as a flat vector.
  * @param phantomNorm Variable to store the computed L2 norm of the phantom.
@@ -113,7 +96,7 @@ void computeSinogram(
  * @param totalRays The total number of rays (rows in the sinogram).
  */
 void normaliseProjectionMatrix(SparseMatrix& projector, size_t totalRays, float& totalWeightSum) {
-    totalWeightSum = 0.0F;
+    totalWeightSum = 0.0f;
 #pragma omp parallel for schedule(static) num_threads(NUM_THREADS)
     for (size_t i = 0; i < totalRays; ++i) {
         double rowNormSq = 0.0;
@@ -124,13 +107,13 @@ void normaliseProjectionMatrix(SparseMatrix& projector, size_t totalRays, float&
         }
 
         float rowNorm = static_cast<float>(sqrt(rowNormSq));
-        if (rowNorm > 0.0F) {
+        if (rowNorm > 0.0f) {
             // Normalise the row and accumulate the normalised weight sum
             for (size_t j = projector.rows[i]; j < projector.rows[i + 1]; ++j) {
                 projector.vals[j] /= rowNorm;
             }
 #pragma omp atomic
-            totalWeightSum += 1.0F;  // Each normalised row has unit norm
+            totalWeightSum += 1.0f;  // Each normalised row has unit norm
         }
     }
 }
@@ -149,8 +132,8 @@ void normaliseProjectionMatrix(SparseMatrix& projector, size_t totalRays, float&
  * @param relativeErrorNorm Variable to store the final relative error norm after reconstruction.
  */
 void cimminoReconstruct(int numIterations,
-    SparseMatrix& projector,
-    SparseMatrixHeader& header,
+    const SparseMatrix& projector,
+    const SparseMatrixHeader& header,
     std::vector<float>& x,
     const size_t& totalRays,
     const std::vector<float>& sinogram,
@@ -165,16 +148,12 @@ void cimminoReconstruct(int numIterations,
     std::vector<float> localX(imageSize, 0.0f);
 
     for (size_t i = 0; i < numIterations; ++i) {
-        // Clear residuals and local update vector
-        std::fill(residuals.begin(), residuals.end(), 0.0f);
-
         // Calculate all residuals for each ray in parallel
 #pragma omp parallel for num_threads(NUM_THREADS)
         for (size_t r = 0; r < totalRays; ++r) {
             float dotProduct = 0.0f;
             int rowStart = projector.rows[r];
             int rowEnd = projector.rows[r + 1];
-            // if (rowStart == rowEnd) continue; // Skip empty rows
 
 #pragma omp simd reduction(+:dotProduct)
             for (int i = rowStart; i < rowEnd; ++i) {
@@ -190,7 +169,6 @@ void cimminoReconstruct(int numIterations,
         for (size_t r = 0; r < totalRays; ++r) {
             int rowStart = projector.rows[r];
             int rowEnd = projector.rows[r + 1];
-            // if (rowStart == rowEnd) continue; // Skip empty rows
 
             float residual = residuals[r];
             float scalar = RELAXATION_FACTOR * (2.0f / totalWeightSum) * residual;
@@ -217,7 +195,8 @@ void cimminoReconstruct(int numIterations,
                 break;
             }
         }
-
+        // Clear residuals 
+        std::fill(residuals.begin(), residuals.end(), 0.0f);
     }
     std::cout << "Reconstruction for " << numIterations << " iterations complete." << std::endl;
 }
@@ -276,7 +255,7 @@ int main(int argc, const char* argv[]) {
     // Precompute phantom norm for error calculation
     double phantomNorm = 0.0;
     precomputePhantomNorm(phantom, phantomNorm);
-
+    std::cout << "Phantom L2 norm: " << phantomNorm << std::endl;
     // Reconstruct image and time execution
     double relativeErrorNorm = 0.0;
     std::vector<float> reconstructed(IMAGE_WIDTH * IMAGE_HEIGHT, 0.0f);
@@ -291,6 +270,6 @@ int main(int argc, const char* argv[]) {
     saveImage(imageSaveFileName, reconstructed, geom.imageWidth, geom.imageHeight);
 
     // Log performance data
-    logPerformance("openmp", geom, numIterations, totalReconstructTime, relativeErrorNorm, scanTime, basePath + LOG_FILE);
+    logPerformance("openmp-enhanced", geom, numIterations, totalReconstructTime, relativeErrorNorm, scanTime, basePath + LOG_FILE);
 }
 
