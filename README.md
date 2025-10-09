@@ -14,18 +14,22 @@ The sequential and OpenMP versions can be compiled with g++ or clang++.
 ## Files
 
 - `CMakeLists.txt`: CMake configuration file for building the project.
+- `executionscript.sh`: Script to build and run Cmake main project for various iteration counts.
 - `metal-src/`: Contains the source code for the Metal-Cpp implementation.
 - `metal-include/`: Contains header files for the Metal-Cpp implementation.
 - `metal-shaders/`: Contains Metal shader files for GPU computations.
 - `Other-Implementations/`: Contains sequential and OpenMP implementations for comparison.
 - `metal-data/`: Contains input data files such as the projection matrix and phantom and output files like the sinogram and reconstructed images.
 - `metal-logs/`: Contains log files for performance measurements.
+- `metal-cpp-library/`: Contains the metal-cpp library files.
+- `normalisation-profiler/`: A simple profiler to measure the execution time of 2D sinogram normalisation in isolation.
+- `algorithm-tester/`: A simple tester to verify the correctness of the Cimmino's algorithm implementation and sinogram computation.
 - `Doc/`: Contains documentation and the project report.
 
 ### Default Geometry Parameters
 
 - Image dimensions: 256x256
-- Number of angles: 90
+- Number of angles: 360
 - Total angle degree: 180
 - Number of detectors: 725
 - Number of iterations: 1000 (can be changed via command-line argument)
