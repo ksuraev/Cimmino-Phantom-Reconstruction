@@ -107,7 +107,7 @@ kernel void cimminosReconstruction(const device float* reconstructedBuffer [[buf
     // Compute residual and scaling factor λ * 2/w * (b_i - A_i^T x^k)
     float b_i = sinogramBuffer_b[rayIndex];
     float residual = b_i - dotProduct;
-    float scalar = relaxFactor * (2.0f / totalWeightSum) * residual;
+    float scalar = relaxFactor * residual;
 
     // Back Project - Add this ray's contribution to the update buffer
     for (int i = rowStart; i < rowEnd; ++i) {
