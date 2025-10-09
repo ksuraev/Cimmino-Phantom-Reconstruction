@@ -118,3 +118,4 @@ combinefiles.py
 submission_combined.cpp
 gpu-profiler.trace
 Doc/videolink.pdf
+profiler.trace
