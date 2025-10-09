@@ -226,13 +226,15 @@ double MTLComputeEngine::reconstructImage(int numIterations, double &relativeErr
     const uint imageSize = width * height;
 
     // Create buffers
-    reconstructedBuffer = metalUtils->createBuffer(imageSize * sizeof(float), MTL::ResourceStorageModeShared);
+    reconstructedBuffer = metalUtils->createBuffer(imageSize * sizeof(float), MTL::ResourceStorageModePrivate);
     auto updateBuffer = metalUtils->createBuffer(imageSize * sizeof(float), MTL::ResourceStorageModeShared);
     auto differenceSumBuffer = metalUtils->createBuffer(sizeof(float), MTL::ResourceStorageModeShared);
 
-    // Initialise reconstructed image to zero
-    memset(reconstructedBuffer->contents(), 0, reconstructedBuffer->length());
+    // Initialise reconstructed image to zero using blit encoder
     auto cmdBuffer = commandQueue->commandBuffer();
+    auto blitEncoder = cmdBuffer->blitCommandEncoder();
+    blitEncoder->fillBuffer(reconstructedBuffer, NS::Range(0, reconstructedBuffer->length()), 0);
+    blitEncoder->endEncoding();
 
     std::cout << "Starting reconstruction for " << numIterations << " iterations..." << std::endl;
 
