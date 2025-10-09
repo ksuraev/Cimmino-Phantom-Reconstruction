@@ -86,10 +86,9 @@ kernel void cimminosReconstruction(const device float* reconstructedBuffer [[buf
                                    const device int* offsetsBuffer_A [[buffer(2)]],
                                    const device int* colsBuffer_A [[buffer(3)]], 
                                    const device float* valsBuffer_A [[buffer(4)]],
-                                   constant float& totalWeightSum [[buffer(5)]], 
-                                   constant uint& numRays [[buffer(6)]],
-                                   device atomic_float* updateBuffer [[buffer(7)]], 
-                                   constant float& relaxFactor [[buffer(8)]],
+                                   constant uint& numRays [[buffer(5)]],
+                                   device atomic_float* updateBuffer [[buffer(6)]], 
+                                   constant float& relaxFactor [[buffer(7)]],
                                    uint gid [[thread_position_in_grid]]) {
     uint rayIndex = gid;
     if (rayIndex >= numRays) return;

@@ -38,7 +38,7 @@ void MTLComputeEngine::loadProjectionMatrix(const std::string &projectionFileNam
     if (matrix.cols.size() != totalNonZeroElements || matrix.vals.size() != totalNonZeroElements)
         throw std::runtime_error("Error: Cols or Vals size does not match total non-zero elements.");
 
-    // Precondition values by normalising each row to unit norm
+    // Precondition values by normalising each row to unit norm and compute total weight sum
     totalWeightSum = 0.0f;
     for (size_t i = 0; i < totalRays; ++i) {
         double rowNormSq = 0.0;
@@ -113,8 +113,8 @@ void MTLComputeEngine::computeSinogram(std::vector<float> &phantomData, double &
     encoder->endEncoding();
 
     // Copy sinogram buffer into texture
-    sinogramTexture = metalUtils->createTexture(geom.nDetectors, geom.nAngles, MTL::PixelFormatR32Float,
-                                                MTL::TextureUsageShaderRead | MTL::TextureUsageShaderWrite);
+    sinogramTexture = metalUtils->createTexture(
+        geom.nDetectors, geom.nAngles, MTL::PixelFormatR32Float, MTL::TextureUsageShaderRead | MTL::TextureUsageShaderWrite);
     metalUtils->copyBufferToTexture(cmdBuffer, sinogramBuffer, sinogramTexture, geom.nDetectors, geom.nAngles);
 
     // Commit and wait only once everything is encoded
@@ -155,7 +155,7 @@ void MTLComputeEngine::findMaxValInTexture(MTL::Texture *texture, float &maxValu
 
     MTL::Size gridSize = MTL::Size(texture->width(), texture->height(), 1);
     MTL::Size numThreadgroups = MTL::Size((gridSize.width + threadgroupSize.width - 1) / threadgroupSize.width,
-                                          (gridSize.height + threadgroupSize.height - 1) / threadgroupSize.height, 1);
+        (gridSize.height + threadgroupSize.height - 1) / threadgroupSize.height, 1);
 
     // Buffer to store max value updated atomically
     MTL::Buffer *maxValuesBuffer = device->newBuffer(sizeof(uint), MTL::ResourceStorageModeShared);
@@ -209,8 +209,11 @@ void MTLComputeEngine::normaliseTexture(MTL::Texture *texture, float maxValue) {
     cmdBuffer->waitUntilCompleted();
 }
 
-double MTLComputeEngine::reconstructImage(int numIterations, double &relativeErrorNorm, const float relaxationParameter,
-                                          const double relativeErrorThreshold, const int errorCheckInterval) {
+double MTLComputeEngine::reconstructImage(int numIterations,
+    double &relativeErrorNorm,
+    const float relaxationParameter,
+    const double relativeErrorThreshold,
+    const int errorCheckInterval) {
     auto startTimeTotal = std::chrono::high_resolution_clock::now();
 
     // Initialise kernel functions and pipelines
@@ -244,7 +247,7 @@ double MTLComputeEngine::reconstructImage(int numIterations, double &relativeErr
     // Compute once on CPU
     float relaxationFactor = relaxationParameter * (2.0f / totalWeightSum);
 
-    for (int i = 0; i < numIterations; ++i) {
+    for (size_t i = 0; i < numIterations; ++i) {
         cmdBuffer = commandQueue->commandBuffer();
 
         // Reset update buffer to zero
@@ -260,10 +263,9 @@ double MTLComputeEngine::reconstructImage(int numIterations, double &relativeErr
         encoder->setBuffer(offsetsBuffer, 0, 2);
         encoder->setBuffer(colsBuffer, 0, 3);
         encoder->setBuffer(valsBuffer, 0, 4);
-        encoder->setBytes(&totalWeightSum, sizeof(float), 5);
-        encoder->setBytes(&totalRays, sizeof(uint), 6);
-        encoder->setBuffer(updateBuffer, 0, 7);
-        encoder->setBytes(&relaxationFactor, sizeof(float), 8);
+        encoder->setBytes(&totalRays, sizeof(uint), 5);
+        encoder->setBuffer(updateBuffer, 0, 6);
+        encoder->setBytes(&relaxationFactor, sizeof(float), 7);
         metalUtils->dispatchThreads(encoder, cimminoPipeline, totalRays);
         encoder->endEncoding();
 
