@@ -239,6 +239,9 @@ double MTLComputeEngine::reconstructImage(int numIterations, double &relativeErr
     // Start timing reconstruction
     auto startTime = std::chrono::high_resolution_clock::now();
 
+    // Compute once on CPU
+    float relaxationFactor = relaxationParameter * (2.0f / totalWeightSum);
+
     for (int i = 0; i < numIterations; ++i) {
         cmdBuffer = commandQueue->commandBuffer();
 
@@ -256,7 +259,7 @@ double MTLComputeEngine::reconstructImage(int numIterations, double &relativeErr
         encoder->setBytes(&totalWeightSum, sizeof(float), 5);
         encoder->setBytes(&totalRays, sizeof(uint), 6);
         encoder->setBuffer(updateBuffer, 0, 7);
-        encoder->setBytes(&relaxationParameter, sizeof(float), 8);
+        encoder->setBytes(&relaxationFactor, sizeof(float), 8);
         metalUtils->dispatchThreads(encoder, cimminoPipeline, totalRays);
         encoder->endEncoding();
 
