@@ -50,9 +50,7 @@ void MTLRenderEngine::frameBufferSizeCallback(GLFWwindow *window, int width, int
     engine->resizeFrameBuffer(width, height);
 }
 
-void MTLRenderEngine::resizeFrameBuffer(int width, int height) {
-    metalLayer.drawableSize = CGSizeMake(width, height);
-}
+void MTLRenderEngine::resizeFrameBuffer(int width, int height) { metalLayer.drawableSize = CGSizeMake(width, height); }
 
 CA::MetalDrawable *MTLRenderEngine::getNextDrawable(CAMetalLayer *nativeLayer) {
     // Call the native Objective-C method
@@ -70,11 +68,9 @@ void MTLRenderEngine::createRenderPipeline() {
 
     // Create colour map texture
     long numColors = colourMapData.size() / 4;
-    MTL::TextureDescriptor *texDesc =
-        MTL::TextureDescriptor::texture2DDescriptor(MTL::PixelFormatRGBA32Float, numColors, 1, false);
+    MTL::TextureDescriptor *texDesc = MTL::TextureDescriptor::texture2DDescriptor(MTL::PixelFormatRGBA32Float, numColors, 1, false);
     colourMapTexture = device->newTexture(texDesc);
-    colourMapTexture->replaceRegion(MTL::Region(0, 0, numColors, 1), 0, colourMapData.data(),
-                                    numColors * sizeof(float) * 4);
+    colourMapTexture->replaceRegion(MTL::Region(0, 0, numColors, 1), 0, colourMapData.data(), numColors * sizeof(float) * 4);
 
     // Extract vertex and fragment kernel functions from library
     MTL::Function *vertexFn = metalUtils->createKernelFn("vertex_main", library);
@@ -87,16 +83,14 @@ void MTLRenderEngine::createRenderPipeline() {
     renderDesc->colorAttachments()->object(0)->setPixelFormat(static_cast<MTL::PixelFormat>(metalLayer.pixelFormat));
 
     if (!renderDesc) {
-        std::cerr << "Error: Failed to create render pipeline descriptor: "
-                  << error->localizedDescription()->utf8String() << std::endl;
+        std::cerr << "Error: Failed to create render pipeline descriptor: " << error->localizedDescription()->utf8String() << std::endl;
         return;
     }
 
     // Create render pipeline
     renderPipeline = device->newRenderPipelineState(renderDesc, &error);
     if (!renderPipeline) {
-        std::cerr << "Error: Failed to create render pipeline state: " << error->localizedDescription()->utf8String()
-                  << std::endl;
+        std::cerr << "Error: Failed to create render pipeline state: " << error->localizedDescription()->utf8String() << std::endl;
         return;
     }
 }

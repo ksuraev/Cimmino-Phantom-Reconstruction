@@ -82,7 +82,7 @@ bool AlgorithmTester::checkSinogramAccuracy(uint imageSize) {
     // Load solution (computed in R code)
     std::vector<float> solutionData;
     loadSinogram(std::string(PROJECT_BASE_PATH) + "/metal-data/sino_sol_" + std::to_string(imageSize) + ".txt", solutionData,
-                 geom.nAngles * geom.nDetectors);
+        geom.nAngles * geom.nDetectors);
 
     // Get computed sinogram data from buffer
     std::vector<float> computedData(geom.nAngles * geom.nDetectors);

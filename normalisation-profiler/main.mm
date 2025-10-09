@@ -28,8 +28,8 @@ int main(int argc, char **argv) {
         NormalisationProfiler NormalisationProfiler(context, geom);
 
         // Time sinogram normalisation
-        auto time = NormalisationProfiler.normaliseSinogram(std::string(PROJECT_BASE_PATH) + SINOGRAM_TEST_FILE,
-                                                            geom.nAngles, geom.nDetectors);
+        auto time =
+            NormalisationProfiler.normaliseSinogram(std::string(PROJECT_BASE_PATH) + SINOGRAM_TEST_FILE, geom.nAngles, geom.nDetectors);
 
         // Log metrics to CSV file
         auto logFilePath = std::string(PROJECT_BASE_PATH) + LOG_FILE;

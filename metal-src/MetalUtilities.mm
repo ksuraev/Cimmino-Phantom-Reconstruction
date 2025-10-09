@@ -4,8 +4,7 @@
 
 MetalUtilities::MetalUtilities(MTL::Device* device, MTL::Library* library, MTL::CommandQueue* commandQueue)
     : device(device), defaultLibrary(library), commandQueue(commandQueue) {
-    if (!device || !defaultLibrary || !commandQueue)
-        throw std::runtime_error("Invalid Metal context provided to MetalUtilities.");
+    if (!device || !defaultLibrary || !commandQueue) throw std::runtime_error("Invalid Metal context provided to MetalUtilities.");
 }
 
 MTL::Function* MetalUtilities::createKernelFn(const char* functionName, MTL::Library* library) {
@@ -18,10 +17,9 @@ MTL::ComputePipelineState* MetalUtilities::createComputePipeline(MTL::Function* 
     NS::Error* error = nullptr;
     MTL::ComputePipelineState* pipeline = device->newComputePipelineState(function, &error);
     if (!pipeline)
-        throw std::runtime_error(
-            "Error: Failed to create pipeline state. " +
-            (pipeline->label() ? std::string(pipeline->label()->utf8String()) : "Unnamed Pipeline") + " " +
-            (error ? std::string(error->localizedDescription()->utf8String()) : "Unknown Error"));
+        throw std::runtime_error("Error: Failed to create pipeline state. " +
+                                 (pipeline->label() ? std::string(pipeline->label()->utf8String()) : "Unnamed Pipeline") + " " +
+                                 (error ? std::string(error->localizedDescription()->utf8String()) : "Unknown Error"));
     function->release();
     return pipeline;
 }
@@ -37,11 +35,9 @@ MTL::Buffer* MetalUtilities::createBuffer(size_t size, MTL::ResourceOptions opti
     return buffer;
 }
 
-MTL::Texture* MetalUtilities::createTexture(uint width, uint height, MTL::PixelFormat pixelFormat,
-                                            MTL::TextureUsage usage) {
+MTL::Texture* MetalUtilities::createTexture(uint width, uint height, MTL::PixelFormat pixelFormat, MTL::TextureUsage usage) {
     // Create a texture descriptor
-    MTL::TextureDescriptor* textureDesc =
-        MTL::TextureDescriptor::texture2DDescriptor(pixelFormat, width, height, false);
+    MTL::TextureDescriptor* textureDesc = MTL::TextureDescriptor::texture2DDescriptor(pixelFormat, width, height, false);
     textureDesc->setUsage(usage);
 
     // Create the texture
@@ -50,8 +46,7 @@ MTL::Texture* MetalUtilities::createTexture(uint width, uint height, MTL::PixelF
     return texture;
 }
 
-void MetalUtilities::dispatchThreads(MTL::ComputeCommandEncoder* encoder, MTL::ComputePipelineState* pipeline,
-                                     size_t totalElements) {
+void MetalUtilities::dispatchThreads(MTL::ComputeCommandEncoder* encoder, MTL::ComputePipelineState* pipeline, size_t totalElements) {
     // Calculate thread group size
     NS::UInteger threadGroupSize = pipeline->maxTotalThreadsPerThreadgroup();
 
@@ -63,11 +58,10 @@ void MetalUtilities::dispatchThreads(MTL::ComputeCommandEncoder* encoder, MTL::C
     encoder->dispatchThreads(gridSize, MTL::Size(threadGroupSize, 1, 1));
 }
 
-void MetalUtilities::copyBufferToTexture(MTL::CommandBuffer* cmdBuffer, MTL::Buffer* buffer, MTL::Texture* texture,
-                                         size_t width, size_t height) {
+void MetalUtilities::copyBufferToTexture(
+    MTL::CommandBuffer* cmdBuffer, MTL::Buffer* buffer, MTL::Texture* texture, size_t width, size_t height) {
     auto blitEncoder = cmdBuffer->blitCommandEncoder();
-    blitEncoder->copyFromBuffer(buffer, 0, width * sizeof(float), 0, MTL::Size(width, height, 1), texture, 0, 0,
-                                MTL::Origin(0, 0, 0));
+    blitEncoder->copyFromBuffer(buffer, 0, width * sizeof(float), 0, MTL::Size(width, height, 1), texture, 0, 0, MTL::Origin(0, 0, 0));
     blitEncoder->endEncoding();
 }
 

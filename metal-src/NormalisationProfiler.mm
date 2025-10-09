@@ -4,8 +4,7 @@
 #include "NormalisationProfiler.hpp"
 #include "MetalUtilities.hpp"
 
-NormalisationProfiler::NormalisationProfiler(MetalContext &context, const Geometry &geom)
-    : MTLComputeEngine(context, geom) {}
+NormalisationProfiler::NormalisationProfiler(MetalContext &context, const Geometry &geom) : MTLComputeEngine(context, geom) {}
 
 double NormalisationProfiler::normaliseSinogram(const std::string &fileName, uint nAngles, uint nDetectors) {
     std::vector<float> sinogramData;
@@ -17,8 +16,7 @@ double NormalisationProfiler::normaliseSinogram(const std::string &fileName, uin
     }
 
     // Load sinogram into texture
-    MTL::Texture *sinogramTexture =
-        metalUtils->createTexture(nDetectors, nAngles, MTL::PixelFormatR32Float, MTL::TextureUsageShaderRead);
+    MTL::Texture *sinogramTexture = metalUtils->createTexture(nDetectors, nAngles, MTL::PixelFormatR32Float, MTL::TextureUsageShaderRead);
     MTL::Region region = MTL::Region::Make2D(0, 0, nDetectors, nAngles);
     sinogramTexture->replaceRegion(region, 0, sinogramData.data(), nDetectors * sizeof(float));
 
@@ -58,8 +56,8 @@ void NormalisationProfiler::logPerformance(const std::string &logFilePath, doubl
     std::tm *local_tm = std::localtime(&now_time);
 
     // Write the new data row to CSV file
-    logFile << std::put_time(local_tm, "%Y-%m-%d %H:%M:%S") << "," << geom.imageWidth << "," << geom.imageHeight << ","
-            << geom.nAngles << "," << geom.nDetectors << "," << normalisationTime << "," << "Metal" << "\n";
+    logFile << std::put_time(local_tm, "%Y-%m-%d %H:%M:%S") << "," << geom.imageWidth << "," << geom.imageHeight << "," << geom.nAngles
+            << "," << geom.nDetectors << "," << normalisationTime << "," << "Metal" << "\n";
 
     logFile.close();
     std::cout << "Performance metrics logged." << std::endl;

@@ -3,3 +3,6 @@ ColumnLimit: 140
 IndentWidth: 4
 TabWidth: 4
 UseTab: Never
+AlignAfterOpenBracket: DontAlign
+BinPackParameters: OnePerLine
+
