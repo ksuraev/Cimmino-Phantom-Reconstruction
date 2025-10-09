@@ -78,8 +78,17 @@ void MTLComputeEngine::initialisePhantom(std::vector<float> &phantomData) {
     // Create texture and buffer for phantom
     originalPhantomTexture =
         metalUtils->createTexture(geom.imageWidth, geom.imageHeight, MTL::PixelFormatR32Float, MTL::TextureUsageShaderRead);
-    phantomBuffer =
-        metalUtils->createBuffer(flippedPhantomData.size() * sizeof(float), MTL::ResourceStorageModeShared, flippedPhantomData.data());
+    phantomBuffer = metalUtils->createBuffer(flippedPhantomData.size() * sizeof(float), MTL::ResourceStorageModePrivate);
+
+    // Load phantom data into private buffer using blit encoder
+    auto cmdBuffer = commandQueue->commandBuffer();
+    auto blitEncoder = cmdBuffer->blitCommandEncoder();
+    blitEncoder->copyFromBuffer(
+        metalUtils->createBuffer(flippedPhantomData.size() * sizeof(float), MTL::ResourceStorageModeShared, flippedPhantomData.data()), 0,
+        phantomBuffer, 0, flippedPhantomData.size() * sizeof(float));
+    blitEncoder->endEncoding();
+    cmdBuffer->commit();
+    cmdBuffer->waitUntilCompleted();
 
     // Load original phantom data into texture
     MTL::Region region = MTL::Region::Make2D(0, 0, geom.imageWidth, geom.imageHeight);
