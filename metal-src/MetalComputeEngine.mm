@@ -227,7 +227,7 @@ double MTLComputeEngine::reconstructImage(int numIterations, double &relativeErr
 
     // Create buffers
     reconstructedBuffer = metalUtils->createBuffer(imageSize * sizeof(float), MTL::ResourceStorageModePrivate);
-    auto updateBuffer = metalUtils->createBuffer(imageSize * sizeof(float), MTL::ResourceStorageModeShared);
+    auto updateBuffer = metalUtils->createBuffer(imageSize * sizeof(float), MTL::ResourceStorageModePrivate);
     auto differenceSumBuffer = metalUtils->createBuffer(sizeof(float), MTL::ResourceStorageModeShared);
 
     // Initialise reconstructed image to zero using blit encoder
@@ -248,7 +248,9 @@ double MTLComputeEngine::reconstructImage(int numIterations, double &relativeErr
         cmdBuffer = commandQueue->commandBuffer();
 
         // Reset update buffer to zero
-        memset(updateBuffer->contents(), 0, updateBuffer->length());
+        auto blitEncoder = cmdBuffer->blitCommandEncoder();
+        blitEncoder->fillBuffer(updateBuffer, NS::Range(0, updateBuffer->length()), 0);
+        blitEncoder->endEncoding();
 
         // Dispatch the Cimmino reconstruction kernel
         MTL::ComputeCommandEncoder *encoder = cmdBuffer->computeCommandEncoder();
