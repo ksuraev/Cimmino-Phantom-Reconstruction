@@ -53,8 +53,8 @@ int main(int argc, char **argv) {
 
         // logPerformance(geom, numIterations, projectionTime, scanTime, totalReconstructTime, finalErrorNorm,
         //                std::string(PROJECT_BASE_PATH) + LOG_FILE);
-        logRelaxationExperiment(geom, numIterations, RELAXATION_FACTOR, finalErrorNorm, totalReconstructTime,
-            std::string(PROJECT_BASE_PATH) + "/metal-logs/relaxation_experiment_log.csv");
+        logExperiment("Model-11", geom, numIterations, RELAXATION_FACTOR, finalErrorNorm, totalReconstructTime,
+            std::string(PROJECT_BASE_PATH) + "/metal-logs/other_phantom_experiment.csv");
 
         pPool->release();
     } catch (const std::exception &e) {

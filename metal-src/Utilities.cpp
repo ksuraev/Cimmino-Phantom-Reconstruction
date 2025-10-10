@@ -149,7 +149,7 @@ void logPerformance(
     std::cout << "Performance metrics logged." << std::endl;
 }
 
-void logRelaxationExperiment(Geometry& geom, int numIterations, float relaxationFactor, double finalErrorNorm, double reconstructionTime, const std::string& filename) {
+void logExperiment(std::string experimentType, Geometry& geom, int numIterations, float relaxationFactor, double finalErrorNorm, double reconstructionTime, const std::string& filename) {
     std::ofstream logFile;
 
     std::ifstream fileExists(filename);
@@ -164,7 +164,7 @@ void logRelaxationExperiment(Geometry& geom, int numIterations, float relaxation
     }
 
     if (writeHeader) {
-        logFile << "Timestamp,ExecutionType,NumIterations,ImageWidth,ImageHeight,NumAngles,NumDetectors,RelaxationFactor,FinalErrorNorm,ReconstructionTime_ms\n";
+        logFile << "Timestamp,ExperimentType,NumIterations,ImageWidth,ImageHeight,NumAngles,NumDetectors,RelaxationFactor,FinalErrorNorm,ReconstructionTime_ms\n";
     }
 
     // Get the current system time for the log entry
@@ -173,7 +173,7 @@ void logRelaxationExperiment(Geometry& geom, int numIterations, float relaxation
     std::tm* local_tm = std::localtime(&now_time);
 
     // Write the new data row to CSV file
-    logFile << std::put_time(local_tm, "%Y-%m-%d %H:%M:%S") << "," << "Metal-line-constrained" << ","
+    logFile << std::put_time(local_tm, "%Y-%m-%d %H:%M:%S") << "," << experimentType << ","
         << numIterations << "," << geom.imageWidth << ","
         << geom.imageHeight << "," << geom.nAngles << "," << geom.nDetectors
         << "," << relaxationFactor << "," << finalErrorNorm << "," << reconstructionTime <<
