@@ -9,7 +9,7 @@ constexpr const char PROJECTION_MATRIX_FILE[] = "/metal-data/projection_256.bin"
 constexpr const char PHANTOM_FILE[] = "/metal-data/phantom_256.txt";
 constexpr const char LOG_FILE[] = "/metal-logs/metal_performance_log.csv";
 
-constexpr float RELAXATION_FACTOR = 350.0;
+constexpr float RELAXATION_FACTOR = 350.0f;
 
 int main(int argc, char **argv) {
     if (IMAGE_WIDTH != IMAGE_HEIGHT) {
@@ -43,18 +43,16 @@ int main(int argc, char **argv) {
         double finalErrorNorm = 0.0;
         auto totalReconstructTime = mtlComputeEngine.reconstructImage(numIterations, finalErrorNorm, RELAXATION_FACTOR);
 
-        // MTLRenderEngine mtlRenderEngine = MTLRenderEngine(context);
+        MTLRenderEngine mtlRenderEngine = MTLRenderEngine(context);
 
-        // // Get textures from metal compute engine and render with metal render engine
-        // mtlRenderEngine.setSinogramTexture(mtlComputeEngine.getSinogramTexture());
-        // mtlRenderEngine.setReconstructedTexture(mtlComputeEngine.getReconstructedTexture());
-        // mtlRenderEngine.setOriginalPhantomTexture(mtlComputeEngine.getOriginalPhantomTexture());
-        // mtlRenderEngine.render();
+        // Get textures from metal compute engine and render with metal render engine
+        mtlRenderEngine.setSinogramTexture(mtlComputeEngine.getSinogramTexture());
+        mtlRenderEngine.setReconstructedTexture(mtlComputeEngine.getReconstructedTexture());
+        mtlRenderEngine.setOriginalPhantomTexture(mtlComputeEngine.getOriginalPhantomTexture());
+        mtlRenderEngine.render();
 
-        // logPerformance(geom, numIterations, projectionTime, scanTime, totalReconstructTime, finalErrorNorm,
-        //                std::string(PROJECT_BASE_PATH) + LOG_FILE);
-        logExperiment("Model-11", geom, numIterations, RELAXATION_FACTOR, finalErrorNorm, totalReconstructTime,
-            std::string(PROJECT_BASE_PATH) + "/metal-logs/other_phantom_experiment.csv");
+        logPerformance(
+            geom, numIterations, projectionTime, scanTime, totalReconstructTime, finalErrorNorm, std::string(PROJECT_BASE_PATH) + LOG_FILE);
 
         pPool->release();
     } catch (const std::exception &e) {
