@@ -7,7 +7,7 @@ import matplotlib.pyplot as plt
 # Path to the 2D phantom library definitions
 libpath = os.path.join(os.path.dirname(tomophantom.__file__), "phantomlib", "Phantom2DLibrary.dat")
 
-# Generate a 2D phantom (model 11, size 256×256)
+# Generate a 2D phantom - specify the model number and the size
 phantom = TomoP2D.Model(13, 256, libpath)
 
 # Normalise the phantom to [0, 1]
