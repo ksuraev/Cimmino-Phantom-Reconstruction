@@ -4,7 +4,7 @@ This repository features a Metal-Cpp implementation of Cimmino's algorithm for i
 
 ![Reconstructions](Doc/Images/reconstructions.png)
 
-Image reconstruction is a fundamental task in Computed Tomography (CT) and other imaging modalities. Cimmino's algorithm simultaneously reflects the current estimate across all hyperplanes defined by the linear equations, generating a sequence of approximations that converge to a solution. The nature of Cimmino's algorithm lends itself well to parallelisation.
+Image reconstruction is a fundamental task in Computed Tomography (CT) and other imaging modalities. Cimmino's algorithm simultaneously reflects the current estimate across all hyperplanes defined by the linear system, generating a sequence of approximations that converge to a solution - either an exact solution if the system is consistent, or a least-squares solution if it is not. The nature of Cimmino's algorithm lends itself well to parallelisation, which is exploited in the Metal-Cpp implementation.
 
 ## Requirements
 
@@ -14,7 +14,7 @@ The sequential and OpenMP versions can be compiled with g++ or clang++.
 ## Files
 
 - `CMakeLists.txt`: CMake configuration file for building the project.
-- `executionscript.sh`: Script to build and run Cmake main project for various iteration counts.
+- `executionscript.sh`: Script to build and run Cmake reconstruction project for various iteration counts.
 - `metal-src/`: Contains the source code for the Metal-Cpp implementation.
 - `metal-include/`: Contains header files for the Metal-Cpp implementation.
 - `metal-shaders/`: Contains Metal shader files for GPU computations.
@@ -23,7 +23,7 @@ The sequential and OpenMP versions can be compiled with g++ or clang++.
 - `metal-logs/`: Contains log files for performance measurements.
 - `metal-cpp-library/`: Contains the metal-cpp library files.
 - `normalisation-profiler/`: A simple profiler to measure the execution time of 2D sinogram normalisation in isolation.
-- `algorithm-tester/`: A simple tester to verify the correctness of the Cimmino's algorithm implementation and sinogram computation.
+- `algorithm-tester/`: A tester to verify the correctness of algorithm implementations.
 - `Doc/`: Contains documentation and the project report.
 
 ### Default Geometry Parameters
@@ -42,20 +42,24 @@ The sequential and OpenMP versions can be compiled with g++ or clang++.
 2. From the root directory, build the project:
    ```bash
     cmake -S . -B build
-    cmake --build build --config Release
+    cmake --build build
    ```
-3. Run CMake to configure the project:
+3. Run the compiled executable:
    ```bash
     ./build/project
    ```
-4. Optionally, pass the number of iterations as a command-line argument (default is 1000):
+4. Optionally, pass the number of iterations as a command-line argument (default is 100):
    ```bash
     ./build/project [num_iterations]
    ```
-5. The sinogram, reconstructed image and original phantom will be displayed in a window (use the left and right arrow keys to switch between views). The reconstructed image will also be saved in the `metal-data/` directory.
-6. Performance logs will be saved in the `metal-logs/` directory.
-7. In order to use a different projection matrix, e.g. for a different image size or number of angles, it must be generated using Astra-Toolbox using the Python script `projection_astra.py` in the `data/` directory. You must have Astra-Toolbox installed in your Python environment. The matrix should be saved in the `metal-data/` directory and the path to the file should be updated in `metal-src/main.mm`. Then, you must generate the phantom image with the same parameters using the `phantom_astra.py` script in the `metal-data/` directory. The path to the phantom image should be updated in `metal-src/main.mm` as well. Finally, you must update the image dimensions and number of angles in `metal-src/main.mm` to match the new projection matrix and phantom image. Not setting these parameters correctly will lead to incorrect results or crashes.
-8. The metal shaders are compiled automatically by the CMake build process. If you modify the shaders, you must re-run the CMake build process to recompile them. The compiled `.metallib` files are saved in the `build` directory. If you wish to compile the shaders manually, you can use the `xcrun -sdk macosx metal` command. For example:
+5. Run the program for various iteration counts with the execution script:
+   ```bash
+    ./executionscript.sh
+   ```
+6. The sinogram, reconstructed image and original phantom will be displayed in a window (use the left and right arrow keys to switch between views). The reconstructed image will also be saved in the `metal-data/` directory.
+7. Performance logs will be saved in the `metal-logs/` directory.
+8. In order to use a different projection matrix, e.g. for a different image size or number of angles, it must be generated using Astra-Toolbox using the Python script `projection_astra.py` in the `data/` directory. You must have Astra-Toolbox installed in your Python environment. The matrix should be saved in the `metal-data/` directory and the path to the file should be updated in `metal-src/main.mm`. Then, you must generate the phantom image with the same parameters using the `phantom_astra.py` script in the `metal-data/` directory. The path to the phantom image should be updated in `metal-src/main.mm` as well. Finally, you must update the image dimensions and number of angles in `metal-src/main.mm` to match the new projection matrix and phantom image. Not setting these parameters correctly will lead to incorrect results or crashes.
+9. The metal shaders are compiled automatically by the CMake build process. If you modify the shaders, you must re-run the CMake build process to recompile them. The compiled `.metallib` files are saved in the `build` directory. If you wish to compile the shaders manually, you can use the `xcrun -sdk macosx metal` command. For example:
    ```bash
     xcrun -sdk macosx metal -o metallibrary.ir -c kernels.metal
     xcrun -sdk macosx metallib -o metallibrary.metallib metallibrary.ir
@@ -67,43 +71,45 @@ The sequential and OpenMP versions can be compiled with g++ or clang++.
    ```bash
     cd Other-Implementations
    ```
-   2. To run the execution script which compiles and runs the sequential and OpenMP versions for various iteration counts, you must first set the environment variable `PROJECT_BASE_PATH` to the `Other-Implementations` directory path. For example:
-   ```bash
-    export PROJECT_BASE_PATH=/path/to/Other-Implementations
-   ```
-   Then, run the script:
-   ```bash
-   ./execution_script.sh
-   ```
-2. Alternatively, you can compile and run the sequential version directly:
+2. Compile and run the sequential version directly:
    ```bash
    cd Sequential
     clang++ -o sequential sequential.cpp ../utilities/Utilities.cpp
     ./sequential [num_iterations]
    ```
-3. The reconstructed image will be saved in the `data/` directory. To view the reconstructed images, use the `view_reconstructed_image.py` script in the `data/` directory.
 
 ### OpenMP Version:
 
-4. Navigate to the `Other-Implementations` directory:
+1. Navigate to the `Other-Implementations` directory:
    ```bash
     cd Other-Implementations
    ```
-5. To run the execution script which compiles and runs the sequential and OpenMP versions for various iteration counts, you must first set the environment variable `PROJECT_BASE_PATH` to the `Other-Implementations` directory path. For example:
-   ```bash
-    export PROJECT_BASE_PATH=/path/to/Other-Implementations
-   ```
-   Then, run the script:
-   ```bash
-   ./execution_script.sh
-   ```
-6. Alternatively, you can compile and run the OpenMP version directly:
+2. Compile and run the OpenMP version directly:
    ```bash
     cd OpenMP
     g++-15 -fopenmp -o openmp openmp.cpp ../utilities/Utilities.cpp
     ./openmp [num_iterations]
    ```
+   The reconstructed image will be saved in the `data/` directory. To view the reconstructed images, use the `view_images.py` script in the `data/` directory.
+
+### OpenMP/Seq Execution Script:
+
+To run the execution script which compiles and runs the sequential and OpenMP versions for various iteration counts, you must first set the environment variable `PROJECT_BASE_PATH` to the `Other-Implementations` directory path. For example:
+
+```bash
+ export PROJECT_BASE_PATH=/path/to/Other-Implementations
+```
+
+Then, run the script:
+
+```bash
+./execution_script.sh
+```
 
 ### View Reconstructed Images:
 
-The reconstructed images will be saved in the `metal-data/` directory with the number of iterations appended to the filename. To view the reconstructed images, use the `view_reconstructed_image.py` script in the `metal-data/` directory. You must add the path/paths of the images you want to view in the script.
+The reconstructed images will be saved in the `metal-data/` directory with the number of iterations appended to the filename. To view the reconstructed images, use the `view_images.py` script in the `metal-data/` directory. You must add the path/paths of the images you want to view in the script.
+
+### Other Phantoms:
+
+The implementation can be used to reconstruct other phantoms as well. You can generate the various other phantoms from TomoPhantom using the `other_phantom.py` script in the `metal-data/` directory. Specify the model number and phantom size in the script.
