@@ -59,9 +59,22 @@ For 1000 iterations, the performance results are as follows:
 | OpenMP | 1502910 | 1.4 | 0.027 |
 | Metal | 6952 | 30.0 | 0.027 |
 
-### Best Shepp-Logan Phantom Reconstruction
+### Best Shepp-Logan Phantom Reconstruction (left) and Original Shepp-Logan Phantom (right)
 
-![Shepp-Logan Phantom Reconstruction](Doc/Images/best)
+<div style="display: flex; justify-content: center; align-items: center;">
+  <img src="Doc/Images/best1000.png" alt="Shepp-Logan Phantom Reconstruction" width="45%" style="margin-right: 10px;">
+  <img src="Doc/Images/phantom_256.png" alt="Shepp-Logan Phantom Sinogram" width="45%">
+</div>
+
+### Other Phantoms:
+
+The implementation can be used to reconstruct other phantoms as well. You can generate the various other phantoms from TomoPhantom using the `other_phantom.py` script in the `metal-data/` directory. Specify the model number and phantom size in the script and update phantom path in `metal-src/main.mm` accordingly.
+
+### Example Reconstructions of Other Phantoms
+
+| Phantom Model | Reconstruction (1000 iterations)                       | Original Phantom                                    |
+| ------------- | ------------------------------------------------------ | --------------------------------------------------- |
+| Model 2       | ![Model 2 Reconstruction](Doc/Images/model2_recon.png) | ![Model 2 Original](Doc/Images/model2_original.png) |
 
 ## Usage
 
@@ -133,7 +146,3 @@ Then, run the script:
 ### View Reconstructed Images:
 
 The reconstructed images will be saved in the `metal-data/` directory with the number of iterations appended to the filename. To view the reconstructed images, use the `view_images.py` script in the `metal-data/` directory. Add the path/paths of the .txt images you want to view in the script.
-
-### Other Phantoms:
-
-The implementation can be used to reconstruct other phantoms as well. You can generate the various other phantoms from TomoPhantom using the `other_phantom.py` script in the `metal-data/` directory. Specify the model number and phantom size in the script and update phantom path in `metal-src/main.mm` accordingly.
