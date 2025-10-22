@@ -131,6 +131,8 @@ Doc/_minted
 Doc/compressed.pdf
 .gitignore
 .gitattributes
+metal-data/residuals.nb.html
+metal-data/residuals.Rmd
 
 *.png
 !reconstructions.png
