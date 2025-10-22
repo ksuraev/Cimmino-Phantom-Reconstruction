@@ -111,8 +111,8 @@ metal-logs/incorrectnorm_performance_log.csv
 Other-Implementations/logs/incorrectnorm_performance_log.csv
 *.html
 notes.txt
-metal-data/projection_1024.bin
-projection_1024.bin
+metal-data/*.bin
+*.bin
 Other-Implementations/data/*.txt
 combinefiles.py
 submission_combined.cpp
@@ -121,3 +121,8 @@ Doc/videolink.pdf
 profiler.trace
 Doc/_minted
 Doc/compressed.pdf
+.gitignore
+.gitattributes
+
+*.png
+!reconstructions.png
