@@ -1,0 +1,4 @@
+projection_256.bin filter=lfs diff=lfs merge=lfs -text
+metal-data/projection_256.bin filter=lfs diff=lfs merge=lfs -text
+projection_512.bin filter=lfs diff=lfs merge=lfs -text
+metal-data/projection_512.bin filter=lfs diff=lfs merge=lfs -text

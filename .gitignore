@@ -1,1 +1,131 @@
-Doc/.DS_Store
+# Ignore all
+*
+
+# Unignore all with extensions
+!*.*
+
+# Unignore all dirs
+!*/
+
+# Ignore macOS system files
+.DS_Store
+
+# Ignore vscode config
+*.vscode
+
+# C++ build artifacts
+*.o
+*.obj
+*.exe
+*.out
+*.a
+*.so
+*.dll
+*.dylib
+*.
+*.log
+*.cmake
+CMakeFiles/
+build/
+Makefile
+
+# Jupyter Notebook temporary files
+.ipynb_checkpoints/
+*.~ipynb
+
+# LaTeX auxiliary files
+*.aux
+*.log
+*.toc
+*.lof
+*.lot
+*.fls
+*.fdb_latexmk
+*.synctex.gz
+*.bbl
+*.tex
+*.blg
+*.bib
+*.out
+*.thm
+*.nav
+*.snm
+*.vrb
+*.xdv
+*.pdfsync
+*.dvi
+*.ps
+*.xml
+*.bcf
+*.spl
+# Prerequisites
+*.d
+_minted-report/
+_minted-doc/
+*.bbl-SAVE-ERROR
+
+# Compiled Object files
+*.slo
+*.lo
+*.o
+*.obj
+
+# Precompiled Headers
+*.gch
+*.pch
+
+# Linker files
+*.ilk
+
+# Debugger Files
+*.pdb
+
+# Compiled Dynamic libraries
+*.so
+*.dylib
+*.dll
+
+# Fortran module files
+*.mod
+*.smod
+
+# Compiled Static libraries
+*.lai
+*.la
+*.a
+*.lib
+
+# Executables
+*.exe
+*.out
+*.app
+
+*.dwo
+.vscode/
+
+*.bin
+metal-cpp/
+
+metal-logs/incorrectnorm_performance_log.csv
+Other-Implementations/logs/incorrectnorm_performance_log.csv
+*.html
+notes.txt
+metal-data/*.bin
+*.bin
+Other-Implementations/data/*.txt
+!Other-Implementations/data/phantom_256.txt
+
+metal-data/*.txt
+!metal-data/phantom_256.txt
+!metal-data/solution_*.txt
+!metal-data/magma.txt
+
+combinefiles.py
+submission_combined.cpp
+
+gpu-profiler.trace
+profiler.trace
+
+Doc/videolink.pdf
+Doc/_minted
+Doc/compressed.pdf
