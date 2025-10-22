@@ -119,6 +119,7 @@ Other-Implementations/data/.gitignore
 metal-data/*.txt
 !metal-data/phantom_256.txt
 !metal-data/solution_*.txt
+!metal-data/magma.txt
 combinefiles.py
 submission_combined.cpp
 gpu-profiler.trace
