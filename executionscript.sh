@@ -4,7 +4,7 @@ ITERATIONS=(100 500 1000)
 
 # Build the project
 cmake -S . -B build
-cmake --build build --config Release
+cmake --build build 
 
 for i in "${ITERATIONS[@]}"
 do
