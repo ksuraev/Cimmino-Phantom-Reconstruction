@@ -133,3 +133,5 @@ metal-data/
 
 *.png
 !reconstructions.png
+
+metal-logs/tests_performance_log.csv
