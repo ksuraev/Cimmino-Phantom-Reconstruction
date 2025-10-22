@@ -118,6 +118,7 @@ Other-Implementations/data/*.txt
 Other-Implementations/data/.gitignore
 metal-data/*.txt
 !metal-data/phantom_256.txt
+!metal-data/phantom_model_*.txt
 !metal-data/solution_*.txt
 !metal-data/magma.txt
 combinefiles.py
