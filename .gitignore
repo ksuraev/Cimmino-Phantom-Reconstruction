@@ -114,6 +114,11 @@ notes.txt
 metal-data/*.bin
 *.bin
 Other-Implementations/data/*.txt
+!Other-Implementations/data/phantom_256.txt
+Other-Implementations/data/.gitignore
+metal-data/*.txt
+!metal-data/phantom_256.txt
+!metal-data/solution_*.txt
 combinefiles.py
 submission_combined.cpp
 gpu-profiler.trace
@@ -121,6 +126,7 @@ Doc/videolink.pdf
 profiler.trace
 Doc/_minted
 Doc/compressed.pdf
+metal-data/
 .gitignore
 .gitattributes
 
