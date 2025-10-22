@@ -66,15 +66,17 @@ For 1000 iterations, the performance results are as follows:
   <img src="Doc/Images/phantom_256.png" alt="Shepp-Logan Phantom Sinogram" width="45%">
 </div>
 
-### Other Phantoms:
+## Other Phantoms:
 
 The implementation can be used to reconstruct other phantoms as well. You can generate the various other phantoms from TomoPhantom using the `other_phantom.py` script in the `metal-data/` directory. Specify the model number and phantom size in the script and update phantom path in `metal-src/main.mm` accordingly.
 
 ### Example Reconstructions of Other Phantoms
 
-| Phantom Model | Reconstruction (1000 iterations)                       | Original Phantom                                    |
-| ------------- | ------------------------------------------------------ | --------------------------------------------------- |
-| Model 2       | ![Model 2 Reconstruction](Doc/Images/model2_recon.png) | ![Model 2 Original](Doc/Images/model2_original.png) |
+| TomoPhantom Model | Reconstruction (1000 iterations)                                     | Original Phantom                                                |
+| ----------------- | -------------------------------------------------------------------- | --------------------------------------------------------------- |
+| Model 4           | <img src="Doc/Images/model4_1000.png" width="150px" height="150px">  | <img src="Doc/Images/model4.png" width="150px" height="150px">  |
+| Model 11          | <img src="Doc/Images/model11_1000.png" width="150px" height="150px"> | <img src="Doc/Images/model11.png" width="150px" height="150px"> |
+| Model 13          | <img src="Doc/Images/model13_1000.png" width="150px" height="150px"> | <img src="Doc/Images/model13.png" width="150px" height="150px"> |
 
 ## Usage
 
