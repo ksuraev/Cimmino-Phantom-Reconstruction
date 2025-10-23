@@ -7,6 +7,10 @@ The projection (system) matrix is generated using ASTRA-Toolbox, and the sinogra
 
 Image reconstruction is a fundamental task in Computed Tomography (CT) and other imaging modalities. Cimmino's algorithm simultaneously reflects the current estimate across all hyperplanes defined by the linear system, generating a sequence of approximations that converge to a solution - either an exact solution if the system is consistent, or a weighted least-squares solution if it is not. The nature of Cimmino's algorithm lends itself well to parallelisation, which is exploited in the Metal/C++ implementation.
 
+## Background
+
+This project was completed as part of the coursework for the unit **SIT315: Concurrent and Distributed Programming** at Deakin University. It is based on the mathematical paper written concurrently for the unit **SIT292: Linear Algebra for Data Analysis** on Cimmino's Method.
+
 ## Requirements
 
 This projest requires the metal-cpp library (included in the repository in `metal-cpp-library`) and Apple's Metal framework to run the GPU version, as well as GLFW for window management and image display. It is designed to run in VSCode with CMake.
