@@ -9,7 +9,7 @@ Image reconstruction is a fundamental task in Computed Tomography (CT) and other
 
 ## Background
 
-This project was completed as part of the coursework for the unit **SIT315: Concurrent and Distributed Programming** at Deakin University. It is based on the mathematical report written concurrently for the unit **SIT292: Linear Algebra for Data Analysis** analysing [Cimmino's Method](https://github.com/ksuraev/Cimminos-Method).
+This project was completed as part of the coursework for the unit **SIT315: Concurrent and Distributed Programming** at Deakin University. It is based on the mathematical report written concurrently for the unit **SIT292: Linear Algebra for Data Analysis** analysing [Cimmino's Method](https://github.com/ksuraev/Cimminos-Algorithm).
 
 ## Requirements
 
