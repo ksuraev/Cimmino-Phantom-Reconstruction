@@ -15,22 +15,24 @@ This project was completed as part of the coursework for the unit **SIT315: Conc
 
 This projest requires the metal-cpp library (included in the repository in `metal-cpp-library`) and Apple's Metal framework to run the GPU version, as well as GLFW for window management and image display. It is designed to run in VSCode with CMake.
 
-## Files
+<!-- ## Files
 
 - `CMakeLists.txt`: CMake configuration file for building the project.
 - `executionscript.sh`: Script to build and run Cmake reconstruction project for various iteration counts.
 - `metal-src/`: Contains the source code for the Metal-Cpp implementation.
 - `metal-include/`: Contains header files for the Metal-Cpp implementation.
-- `metal-shaders/`: Contains Metal shader files for GPU computations.
+- `metal-shaders/`: Contains Metal shader files for GPU computations and rendering.
 - `Other-Implementations/`: Contains sequential and OpenMP implementations for comparison.
 - `metal-data/`: Contains input data files such as the projection matrix and phantom and output files like the sinogram and reconstructed images.
 - `metal-logs/`: Contains log files for performance measurements.
 - `metal-cpp-library/`: Contains the metal-cpp library files.
 - `normalisation-profiler/`: Simple profiler to measure the execution time of 2D sinogram normalisation in isolation.
 - `algorithm-tester/`: Tester to verify the correctness of algorithm implementations.
-- `Doc/`: Contains documentation and the project report.
+- `Doc/`: Contains documentation and the project report. -->
 
-### Default Geometry Parameters
+## Default Geometry Parameters
+
+The default parameters used for generating the projection/system matrix and phantom are as follows:
 
 - Image dimensions: 256x256
 - Number of angles: 360
