@@ -16,10 +16,11 @@ MTL::Function* MetalUtilities::createKernelFn(const char* functionName, MTL::Lib
 MTL::ComputePipelineState* MetalUtilities::createComputePipeline(MTL::Function* function) {
     NS::Error* error = nullptr;
     MTL::ComputePipelineState* pipeline = device->newComputePipelineState(function, &error);
-    if (!pipeline)
-        throw std::runtime_error("Error: Failed to create pipeline state. " +
-                                 (pipeline->label() ? std::string(pipeline->label()->utf8String()) : "Unnamed Pipeline") + " " +
-                                 (error ? std::string(error->localizedDescription()->utf8String()) : "Unknown Error"));
+    if (!pipeline) {
+        std::string errorMessage = "Error: Failed to create pipeline state. ";
+        errorMessage += (error ? std::string(error->localizedDescription()->utf8String()) : "Unknown Error");
+        throw std::runtime_error(errorMessage);
+    }
     function->release();
     return pipeline;
 }
