@@ -130,3 +130,6 @@ profiler.trace
 Doc/videolink.pdf
 Doc/_minted
 Doc/compressed.pdf
+
+metal-data/astra-toolbox
+metal-data/projection_256.bin
